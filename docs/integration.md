@@ -1,376 +1,325 @@
-# ConFuse Integration Guide
+# API Backend Integration Guide
 
-## Overview
+> How the API Backend connects to other ConFuse services
 
-This guide covers how to integrate ConFuse into your AI agents, applications, and workflows.
+## Service Communication Overview
 
----
+The API Backend acts as a gateway, routing requests to appropriate microservices:
 
-## Integration Methods
-
-### 1. MCP Protocol (Recommended for AI Agents)
-
-The **Model Context Protocol (MCP)** is the standard way for AI agents to connect to ConFuse.
-
-#### WebSocket Connection
-
-```javascript
-// Connect via WebSocket
-const ws = new WebSocket('wss://api.confuse.io/mcp/ws?key=YOUR_API_KEY');
-
-// Initialize connection
-ws.send(JSON.stringify({
-  jsonrpc: "2.0",
-  id: 1,
-  method: "initialize",
-  params: {
-    clientInfo: {
-      name: "MyAgent",
-      version: "1.0.0"
-    }
-  }
-}));
-
-// List available tools
-ws.send(JSON.stringify({
-  jsonrpc: "2.0",
-  id: 2,
-  method: "tools/list"
-}));
-
-// Search for context
-ws.send(JSON.stringify({
-  jsonrpc: "2.0",
-  id: 3,
-  method: "tools/call",
-  params: {
-    name: "confuse.search",
-    arguments: {
-      query: "how does authentication work",
-      limit: 10
-    }
-  }
-}));
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                              API BACKEND                                  │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  Incoming Request                                                         │
+│       │                                                                   │
+│       ▼                                                                   │
+│  ┌─────────────┐                                                         │
+│  │  Middleware │ ──▶ Rate Limit ──▶ Auth Check ──▶ Validation            │
+│  └──────┬──────┘                                                         │
+│         │                                                                 │
+│         ▼                                                                 │
+│  ┌─────────────┐                                                         │
+│  │   Router    │                                                         │
+│  └──────┬──────┘                                                         │
+│         │                                                                 │
+│    ┌────┴────┬────────┬────────┬────────┐                               │
+│    ▼         ▼        ▼        ▼        ▼                               │
+│ /auth    /sources  /search  /entities  /mcp                             │
+│    │         │        │        │        │                               │
+└────┼─────────┼────────┼────────┼────────┼───────────────────────────────┘
+     │         │        │        │        │
+     ▼         ▼        ▼        ▼        ▼
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│  Auth   │ │  Data   │ │Relation │ │Relation │ │   MCP   │
+│Middleware│ │Connector│ │ Graph   │ │ Graph   │ │ Server  │
+│  :3001  │ │  :8000  │ │  :3018  │ │  :3018  │ │  :3004  │
+└─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
 ```
 
-#### For Cursor IDE
+## Service Clients
 
-Add to your MCP configuration (`~/.cursor/mcp.json`):
+### Auth Middleware Client
 
-```json
-{
-  "mcpServers": {
-    "confuse": {
-      "transport": "websocket",
-      "url": "wss://api.confuse.io/mcp/ws",
-      "headers": {
-        "Authorization": "Bearer YOUR_API_KEY"
-      }
-    }
-  }
-}
-```
-
-#### For Windsurf
-
-Similar configuration in Windsurf's MCP settings.
-
----
-
-### 2. REST API (For Applications)
-
-Use the REST API for web applications and backend services.
-
-#### JavaScript/TypeScript
+Handles all authentication-related operations:
 
 ```typescript
-import { ConFuseClient } from '@confuse/sdk';
+// src/clients/auth-client.ts
+import axios from 'axios';
 
-const client = new ConFuseClient({
-  apiKey: 'YOUR_API_KEY',
-  baseUrl: 'https://api.confuse.io/v1'
+const authClient = axios.create({
+  baseURL: process.env.AUTH_MIDDLEWARE_URL,
+  timeout: 5000,
 });
 
-// Search
-const results = await client.search({
-  query: 'authentication flow',
-  limit: 10,
-  filters: {
-    types: ['code', 'document']
-  }
-});
-
-// Get entity details
-const entity = await client.getEntity('entity-uuid');
-
-// List sources
-const sources = await client.listSources();
-```
-
-#### Python
-
-```python
-from confuse import ConFuseClient
-
-client = ConFuseClient(api_key="YOUR_API_KEY")
-
-# Search
-results = client.search(
-    query="authentication flow",
-    limit=10,
-    filters={"types": ["code", "document"]}
-)
-
-# Get entity with relationships
-entity = client.get_entity("entity-uuid", include_neighbors=True)
-```
-
-#### cURL
-
-```bash
-# Search
-curl -X POST https://api.confuse.io/v1/search \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "authentication flow", "limit": 10}'
-
-# List sources
-curl https://api.confuse.io/v1/sources \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
----
-
-### 3. Webhooks (For Real-time Updates)
-
-Configure webhooks to receive notifications when data changes.
-
-#### Setup
-
-```bash
-curl -X POST https://api.confuse.io/v1/webhooks \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -d '{
-    "url": "https://your-app.com/webhooks/confuse",
-    "events": ["source.synced", "entity.created", "entity.updated"],
-    "secret": "your-webhook-secret"
-  }'
-```
-
-#### Webhook Payload
-
-```json
-{
-  "event": "source.synced",
-  "timestamp": "2026-01-01T12:00:00Z",
-  "data": {
-    "sourceId": "source-uuid",
-    "stats": {
-      "filesProcessed": 150,
-      "chunksCreated": 1200,
-      "entitiesExtracted": 450
-    }
+export const auth = {
+  // Verify JWT token
+  async verifyToken(token: string): Promise<User> {
+    const response = await authClient.get('/auth/verify', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
   },
-  "signature": "sha256=..."
-}
-```
 
----
+  // Validate API key
+  async validateApiKey(apiKey: string): Promise<ApiKeyInfo> {
+    const response = await authClient.post('/api-keys/validate', { apiKey });
+    return response.data;
+  },
 
-## Available MCP Tools
-
-When connected via MCP, these tools are available:
-
-### confuse.search
-Hybrid search across all knowledge.
-
-```json
-{
-  "name": "confuse.search",
-  "arguments": {
-    "query": "string",
-    "limit": 10,
-    "filters": {
-      "sources": ["source-id"],
-      "types": ["code", "document"],
-      "languages": ["python"]
-    }
+  // Refresh token
+  async refreshToken(refreshToken: string): Promise<TokenPair> {
+    const response = await authClient.post('/auth/refresh', { refreshToken });
+    return response.data;
   }
-}
+};
 ```
 
-### confuse.get_entity
-Get entity with full context.
+**Used by:**
+- Auth middleware (`src/middleware/auth.ts`)
+- API key validation
+- Token refresh endpoint
 
-```json
-{
-  "name": "confuse.get_entity",
-  "arguments": {
-    "entityId": "uuid",
-    "includeNeighbors": true,
-    "neighborHops": 2
-  }
-}
-```
+### Data Connector Client
 
-### confuse.get_file
-Read file content from a connected source.
+Manages data source connections:
 
-```json
-{
-  "name": "confuse.get_file",
-  "arguments": {
-    "sourceId": "uuid",
-    "path": "src/auth/handler.py"
-  }
-}
-```
-
-### confuse.list_sources
-List connected data sources.
-
-```json
-{
-  "name": "confuse.list_sources",
-  "arguments": {}
-}
-```
-
----
-
-## Authentication Flows
-
-### API Key (Simplest)
-
-1. Generate API key in ConFuse dashboard
-2. Use in requests: `X-API-Key: key_...`
-
-### OAuth2 (User Context)
-
-1. Redirect user to: `https://confuse.io/oauth/authorize`
-2. Receive callback with authorization code
-3. Exchange for tokens: `POST /oauth/token`
-4. Use access token: `Authorization: Bearer <token>`
-
-### Service Account (Server-to-Server)
-
-1. Create service account in dashboard
-2. Download JSON credentials
-3. Exchange for short-lived token:
-   ```bash
-   curl -X POST https://api.confuse.io/v1/auth/token \
-     -d @service-account.json
-   ```
-
----
-
-## Best Practices
-
-### 1. Caching
-Cache search results for frequently asked questions:
 ```typescript
-const cache = new LRUCache({ maxAge: 5 * 60 * 1000 }); // 5 min
+// src/clients/data-connector-client.ts
+const dataClient = axios.create({
+  baseURL: process.env.DATA_CONNECTOR_URL,
+  timeout: 30000, // Longer timeout for sync operations
+});
 
-async function search(query) {
-  const cached = cache.get(query);
-  if (cached) return cached;
-  
-  const results = await client.search({ query });
-  cache.set(query, results);
-  return results;
-}
+export const dataConnector = {
+  // List all sources for a user
+  async listSources(userId: string): Promise<Source[]> {
+    const response = await dataClient.get('/sources', {
+      headers: { 'X-User-Id': userId }
+    });
+    return response.data.sources;
+  },
+
+  // Connect a new source
+  async connectSource(userId: string, config: SourceConfig): Promise<Source> {
+    const response = await dataClient.post('/sources', config, {
+      headers: { 'X-User-Id': userId }
+    });
+    return response.data;
+  },
+
+  // Trigger sync
+  async syncSource(sourceId: string): Promise<SyncJob> {
+    const response = await dataClient.post(`/sources/${sourceId}/sync`);
+    return response.data;
+  },
+
+  // Get sync status
+  async getSyncStatus(jobId: string): Promise<SyncStatus> {
+    const response = await dataClient.get(`/jobs/${jobId}`);
+    return response.data;
+  }
+};
 ```
 
-### 2. Rate Limit Handling
+**Used by:**
+- `/sources` endpoints
+- Sync management
+- Webhook forwarding
+
+### Relation Graph Client
+
+Queries the knowledge graph:
+
 ```typescript
-async function searchWithRetry(query, retries = 3) {
+// src/clients/relation-graph-client.ts
+const graphClient = axios.create({
+  baseURL: process.env.RELATION_GRAPH_URL,
+  timeout: 10000,
+});
+
+export const relationGraph = {
+  // Hybrid search (vector + graph)
+  async search(query: SearchQuery): Promise<SearchResults> {
+    const response = await graphClient.post('/api/search', query);
+    return response.data;
+  },
+
+  // Get entity with relationships
+  async getEntity(entityId: string, hops: number = 2): Promise<Entity> {
+    const response = await graphClient.get(
+      `/api/graph/entities/${entityId}/neighbors?hops=${hops}`
+    );
+    return response.data;
+  },
+
+  // Get statistics
+  async getStats(): Promise<GraphStats> {
+    const response = await graphClient.get('/api/graph/statistics');
+    return response.data;
+  }
+};
+```
+
+**Used by:**
+- `/search` endpoint
+- `/entities` endpoints
+- Dashboard statistics
+
+### MCP Server Client
+
+For MCP tool operations (used internally):
+
+```typescript
+// src/clients/mcp-client.ts
+const mcpClient = axios.create({
+  baseURL: process.env.MCP_SERVER_URL,
+  timeout: 30000,
+});
+
+export const mcpServer = {
+  // List available tools
+  async listTools(): Promise<Tool[]> {
+    const response = await mcpClient.get('/tools');
+    return response.data.tools;
+  },
+
+  // Call a tool
+  async callTool(name: string, args: object): Promise<ToolResult> {
+    const response = await mcpClient.post('/tools/call', { name, arguments: args });
+    return response.data;
+  }
+};
+```
+
+## Request Flow Examples
+
+### 1. Search Request
+
+```
+Client: POST /v1/search { query: "authentication" }
+        │
+        ▼
+API Backend:
+  1. Validate JWT token (auth-middleware)
+  2. Check rate limits (Redis)
+  3. Forward to relation-graph
+        │
+        ▼
+Relation Graph: POST /api/search
+  - Vector search in Zilliz
+  - Graph traversal in Neo4j
+  - Combine and rank results
+        │
+        ▼
+API Backend:
+  1. Transform response
+  2. Add pagination
+  3. Return to client
+```
+
+### 2. Connect Source
+
+```
+Client: POST /v1/sources { type: "github", config: {...} }
+        │
+        ▼
+API Backend:
+  1. Validate JWT token
+  2. Validate request body
+  3. Forward to data-connector
+        │
+        ▼
+Data Connector: POST /sources
+  - Validate OAuth token
+  - Setup webhooks
+  - Queue initial sync
+        │
+        ▼
+API Backend:
+  1. Return source info
+  2. Optionally: SSE for sync progress
+```
+
+## Error Handling
+
+All service clients use consistent error handling:
+
+```typescript
+// src/clients/base-client.ts
+export async function handleServiceCall<T>(
+  serviceName: string,
+  operation: () => Promise<T>
+): Promise<T> {
   try {
-    return await client.search({ query });
-  } catch (err) {
-    if (err.status === 429 && retries > 0) {
-      const delay = err.headers['retry-after'] * 1000;
-      await sleep(delay);
-      return searchWithRetry(query, retries - 1);
+    return await operation();
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.code === 'ECONNREFUSED') {
+        throw new ServiceUnavailableError(`${serviceName} is unavailable`);
+      }
+      if (error.response?.status === 401) {
+        throw new UnauthorizedError('Authentication failed');
+      }
+      if (error.response?.status === 429) {
+        throw new RateLimitError('Rate limit exceeded');
+      }
+      throw new ServiceError(
+        serviceName,
+        error.response?.data?.message || error.message
+      );
     }
-    throw err;
+    throw error;
   }
 }
 ```
 
-### 3. Filtering for Relevance
-Always filter by source type for better results:
+## Circuit Breaker Pattern
+
+For resilience, we use circuit breakers:
+
 ```typescript
-// For code questions
-const codeResults = await client.search({
-  query: "implement retry logic",
-  filters: { types: ["code"] }
+import CircuitBreaker from 'opossum';
+
+const graphBreaker = new CircuitBreaker(relationGraph.search, {
+  timeout: 10000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 30000,
 });
 
-// For documentation
-const docResults = await client.search({
-  query: "API rate limits",
-  filters: { types: ["document"] }
-});
+graphBreaker.fallback(() => ({
+  results: [],
+  message: 'Search temporarily unavailable'
+}));
 ```
 
----
+## Health Checks
 
-## SDKs
+API Backend checks all downstream services:
 
-### Official SDKs
-
-| Language | Package | Install |
-|----------|---------|---------|
-| JavaScript | `@confuse/sdk` | `npm install @confuse/sdk` |
-| Python | `confuse-sdk` | `pip install confuse-sdk` |
-| Rust | `confuse-sdk` | `cargo add confuse-sdk` |
-
-### Community SDKs
-
-- Go: `github.com/confuse/go-sdk`
-- Ruby: `gem install confuse`
-
----
-
-## Example: Building a Code Assistant
-
-```python
-from confuse import ConFuseClient
-import openai
-
-client = ConFuseClient(api_key="YOUR_CONFUSE_KEY")
-
-def answer_code_question(question: str) -> str:
-    # Get relevant context from ConFuse
-    context = client.search(
-        query=question,
-        limit=5,
-        filters={"types": ["code", "document"]}
-    )
-    
-    # Build context string
-    context_text = "\n\n".join([
-        f"[{r.source.path}]\n{r.content}"
-        for r in context.results
-    ])
-    
-    # Call LLM with context
-    response = openai.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": f"Use this context:\n{context_text}"},
-            {"role": "user", "content": question}
-        ]
-    )
-    
-    return response.choices[0].message.content
+```typescript
+// GET /health
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "timestamp": "2026-01-01T12:00:00Z",
+  "services": {
+    "database": { "status": "connected", "latency": 5 },
+    "redis": { "status": "connected", "latency": 2 },
+    "auth-middleware": { "status": "healthy", "latency": 15 },
+    "data-connector": { "status": "healthy", "latency": 20 },
+    "relation-graph": { "status": "healthy", "latency": 25 },
+    "mcp-server": { "status": "healthy", "latency": 10 }
+  }
+}
 ```
 
----
+## Timeouts and Retries
 
-## Support
-
-- Documentation: https://docs.confuse.io
-- GitHub Issues: https://github.com/confuse/confuse/issues
-- Discord: https://discord.gg/confuse
-- Email: support@confuse.io
+| Service | Timeout | Retries | Notes |
+|---------|---------|---------|-------|
+| auth-middleware | 5s | 2 | Fast, critical |
+| data-connector | 30s | 1 | Slow operations |
+| relation-graph | 10s | 2 | Search operations |
+| mcp-server | 30s | 1 | Tool calls vary |
+| embeddings | 60s | 0 | API calls to external |
