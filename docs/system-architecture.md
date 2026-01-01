@@ -36,7 +36,7 @@
 ║                           │                                                   │                                  ║
 ║                           ▼                                                   ▼                                  ║
 ║    ┌─────────────────────────────────────────────┐    ┌─────────────────────────────────────────────┐          ║
-║    │            MCP-SERVER (Rust)                │    │            API-BACKEND (Node.js)            │          ║
+║    │            MCP-SERVER (Rust)                │    │            API-BACKEND (Rust / Axum)        │          ║
 ║    │                 Port: 3004                  │    │                 Port: 3003                  │          ║
 ║    │                                             │    │                                             │          ║
 ║    │  ┌─────────┐ ┌─────────┐ ┌─────────┐       │    │  ┌─────────┐ ┌─────────┐ ┌─────────┐       │          ║
@@ -55,7 +55,7 @@
 ╠═════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                                                  ║
 ║  ┌─────────────────────────────┐  ┌─────────────────────────────┐  ┌─────────────────────────────┐             ║
-║  │   AUTH-MIDDLEWARE (Node.js) │  │   DATA-CONNECTOR (Python)    │  │   RELATION-GRAPH (Rust)     │             ║
+║  │   AUTH-MIDDLEWARE (external service) │  │   DATA-CONNECTOR (Python)    │  │   RELATION-GRAPH (Rust)     │             ║
 ║  │         Port: 3001          │  │         Port: 8000           │  │         Port: 3018          │             ║
 ║  │                             │  │                              │  │                             │             ║
 ║  │  ┌───────┐ ┌───────┐       │  │  ┌───────┐ ┌───────┐        │  │  ┌───────┐ ┌───────┐        │             ║
@@ -414,9 +414,9 @@ Legend: ✓ = calls this service, - = no direct connection
 | Service | Port | Protocol | Technology |
 |---------|------|----------|------------|
 | frontend | 3000 | HTTP | Next.js / React |
-| auth-middleware | 3001 | HTTP | Node.js / Express |
+| auth-middleware | 3001 | HTTP | External service (see auth-middleware repo) |
 | chunker | 3002 | HTTP | Rust / Actix |
-| api-backend | 3003 | HTTP | Node.js / Express |
+| api-backend | 3003 | HTTP | Rust / Axum |
 | mcp-server | 3004 | stdio / HTTP | Rust |
 | embeddings | 3005 | HTTP | Rust / Actix |
 | relation-graph | 3018 | HTTP | Rust / Actix |

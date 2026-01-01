@@ -70,75 +70,22 @@ ConFuse is a **Knowledge Intelligence Platform** that connects AI agents to orga
 ### 1. API Backend (This Service)
 **Port: 3003** | **Language: Rust (Axum)**
 
-Central API gateway that:
-- Routes requests to appropriate microservices
-- Handles user-facing REST API
-- Orchestrates multi-service workflows
-- Manages API versioning
+# ConFuse Architecture Overview
 
-### 2. Auth Middleware
-**Port: 3001** | **Language: Node.js**
+## System Architecture
 
-Authentication and authorization:
-- JWT token generation/validation
-- OAuth2 flows (GitHub, Google, etc.)
-- API key management
-- User session handling
+ConFuse is a Knowledge Intelligence Platform connecting AI agents to organizational knowledge across code repositories, documents, chat, and other data sources.
 
-### 3. Data Connector
-**Port: 8000** | **Language: Python**
+At a high level:
 
-Data ingestion service:
-- Connects to data sources (GitHub, Drive, etc.)
-- Webhook handling for real-time sync
-- File filtering and preprocessing
-- Triggers knowledge pipeline
+- Frontend (Next.js): UI and client interactions.
+- API Backend (Rust / Axum): Central gateway and orchestration layer (Port: 3003).
+- MCP Server (Rust): Connector and tool orchestration for agent integrations (Port: 3004).
+- Client Connector (Python): Agent transports (WebSocket/SSE) and session management (Port: 8095).
+- Data Connector (Python): Ingests external sources and triggers pipelines (Port: 8000).
+- Chunker, Embeddings, Relation Graph, Code Normalize: Rust services handling processing, indexing, and graph storage.
 
-### 4. Code Normalize Fetch
-**Port: 8090** | **Language: Rust**
-
-Code preprocessing:
-- Fetches code from Git providers
-- AST parsing with tree-sitter
-- Entity extraction (functions, classes)
-- Language detection
-
-### 5. Chunker
-**Port: 3002** | **Language: Rust**
-
-Text segmentation:
-- Semantic chunking for code/docs
-- Entity-aware boundaries
-- Context enrichment
-- Multiple chunking strategies
-
-### 6. Embeddings
-**Port: 3005** | **Language: Rust**
-
-Vector generation:
-- Multi-provider support (OpenAI, Cohere, Voyage)
-- Intelligent model routing
-- Batch processing with caching
-- Reranking support
-
-### 7. Relation Graph
-**Port: 3018** | **Language: Rust**
-
-Knowledge graph:
-- Neo4j for explicit relationships
-- Zilliz for vector similarity
-- Cross-source linking (code↔docs)
-- Hybrid search capabilities
-
-### 8. MCP Server
-**Port: 3004** | **Language: Rust**
-
-MCP Protocol server:
-- JSON-RPC 2.0 over stdio
-- Tools for data access
-- Resource discovery
-- Connector aggregation
-
+Services communicate over HTTP/REST and gRPC where appropriate. Datastores include PostgreSQL (primary), Redis (cache/locks), Neo4j (graph), and a vector store for embeddings.
 ### 9. Client Connector
 **Port: 8095** | **Language: Python**
 
@@ -248,7 +195,7 @@ AI Agent asks: "How does authentication work?"
 | Service | Port | Protocol | Language |
 |---------|------|----------|----------|
 | frontend | 3000 | HTTP | TypeScript |
-| auth-middleware | 3001 | HTTP | Node.js |
+| auth-middleware | 3001 | HTTP | External service (see auth-middleware repo) |
 | chunker | 3002 | HTTP | Rust |
 | api-backend | 3003 | HTTP | Rust |
 | mcp-server | 3004 | stdio/HTTP | Rust |
@@ -310,8 +257,10 @@ See [deployment.md](deployment.md) for detailed deployment instructions.
 docker-compose up -d
 
 # Or start individually
-cd api-backend && npm run dev
-cd auth-middleware && npm run dev
+cd api-backend && cargo run
+# Or with hot-reload (install cargo-watch):
+# cargo watch -x 'run'
+Start the `auth-middleware` service as described in its repository README (../auth-middleware/README.md).
 cd data-connector && uvicorn app:app --reload
 # ... etc
 ```

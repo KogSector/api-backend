@@ -1,215 +1,205 @@
-*** Begin Patch
-*** End Patch
+ # API Backend Development Guide (Rust)
 
-### Option 1: Docker Compose (Full Stack)
+> Setting up your local development environment for the ConFuse API Backend implemented in Rust (Axum).
+
+## Prerequisites
+
+ - **Rust** 1.75+ (install via rustup)
+ - **Cargo** (comes with Rust)
+ - **PostgreSQL** 14+ (local or Docker)
+ - **Redis** 7+ (local or Docker)
+ - **sqlx-cli** (optional, for migrations): `cargo install sqlx-cli --no-default-features --features postgres`
+ - **cargo-watch** (optional, for hot reload): `cargo install cargo-watch`
+ - **Git**
+
+## Initial Setup
+
+### 1. Clone and build
 
 ```bash
-# From project root
-cd ..
-docker-compose up -d
+ # Clone the repository
+ git clone https://github.com/confuse/api-backend.git
+ cd api-backend
+
+ # Build the project
+ cargo build
+
+ # Copy environment file
+ cp .env.example .env
 ```
 
-### Option 2: Run Individual Services
+### 2. Database Setup
 
-Terminal 1 - Auth Middleware:
+**Option A: Docker (Recommended)**
+
 ```bash
-cd ../auth-middleware
-npm run dev
+ # Start PostgreSQL and Redis
+ docker-compose -f docker-compose.dev.yml up -d
+
+ # This starts:
+ # - PostgreSQL on localhost:5432
+ # - Redis on localhost:6379
 ```
 
-Terminal 2 - Data Connector:
+**Option B: Local Installation**
+
+ Install PostgreSQL and Redis via your OS package manager and start the services.
+
+Create the database:
+
 ```bash
-cd ../data-connector
-uvicorn app.main:app --reload --port 8000
+ # Connect to PostgreSQL and create DB/user
+ psql -U postgres
+ CREATE USER confuse WITH PASSWORD 'confuse_password';
+ CREATE DATABASE confuse OWNER confuse;
+ \q
 ```
 
-Terminal 3 - Relation Graph:
-```bash
-cd ../relation-graph
-cargo run
+### 3. Configure Environment
+
+ Edit `.env`:
+
+```env
+ # Database
+ DATABASE_URL=postgresql://confuse:confuse_password@localhost:5432/confuse
+
+ # Redis
+ REDIS_URL=redis://localhost:6379
+
+ # Other services (use defaults for local dev)
+ AUTH_MIDDLEWARE_URL=http://localhost:3001
+ DATA_CONNECTOR_URL=http://localhost:8000
+ RELATION_GRAPH_URL=http://localhost:3018
+
+ # JWT (use any string for local dev)
+ JWT_SECRET=local-development-secret-at-least-32-chars
 ```
 
-Terminal 4 - API Backend:
+### 4. Run Migrations
+
+If using `sqlx` migrations:
+
 ```bash
-cd api-backend
-npm run dev
+ # Ensure sqlx-cli is installed and DATABASE_URL is set
+ sqlx migrate run
+```
+
+If using a different migration tool, follow that tool's commands.
+
+### 5. Start Development Server
+
+```bash
+ # Development (with hot reload)
+ # Install cargo-watch once: cargo install cargo-watch
+ cargo watch -x 'run'
+
+ # Or run once
+ cargo run
+
+ # Server runs at http://localhost:3003 by default
+```
+
+## Project Structure (Rust)
+
+```
+ api-backend/
+ ├── src/
+ │   ├── main.rs              # Entry point
+ │   ├── lib.rs               # Optional library code
+ │   ├── config/              # Configuration
+ │   │   └── mod.rs
+ │   ├── routes/              # Route definitions
+ │   │   ├── mod.rs
+ │   │   └── v1/
+ │   │       ├── mod.rs
+ │   │       ├── sources.rs
+ │   │       ├── search.rs
+ │   │       └── entities.rs
+ │   ├── handlers/            # Request handlers
+ │   ├── services/            # Business logic
+ │   ├── db/                  # Database layer (sqlx/sea-orm)
+ │   ├── models/              # Domain models
+ │   └── utils/               # Utilities (logging, errors)
+ ├── migrations/              # sqlx or other migrations
+ ├── tests/                   # Integration tests
+ ├── Dockerfile
+ ├── Cargo.toml
+ └── README.md
+```
+
+## Development Commands
+
+```bash
+ # Build
+ cargo build
+
+ # Run (development)
+ cargo run
+
+ # Run with hot reload (requires cargo-watch)
+ cargo watch -x 'run'
+
+ # Run tests
+ cargo test
+
+ # Format code
+ cargo fmt
+
+ # Lint (clippy)
+ cargo clippy --all-targets --all-features -- -D warnings
+
+ # Database migrations (sqlx)
+ sqlx migrate run
+```
+
+## Running with Other Services
+
+For full functionality, you need other ConFuse services running. Example commands:
+
+```bash
+ # Start Data Connector (Python)
+ cd ../data-connector
+ uvicorn app.main:app --reload --port 8000
+
+ # Start Client Connector (Python)
+ cd ../client-connector
+ python -m app.main
+
+ # Start Relation Graph (Rust)
+ cd ../relation-graph
+ cargo run
+
+ # Start Code Normalize Fetch (Rust)
+ cd ../code-normalize-fetch
+ cargo run
 ```
 
 ## Testing
 
-### Unit Tests
-
-```bash
-# Run all unit tests
-npm run test:unit
-
-# Run specific test file
-npm run test:unit -- routes/search.test.ts
-
-# Watch mode
-npm run test:unit -- --watch
-```
-
-### Integration Tests
-
-```bash
-# Requires database running
-npm run test:integration
-```
-
-### Test Structure
-
-```typescript
-// tests/unit/routes/search.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import request from 'supertest';
-import app from '../../../src/app';
-
-describe('Search Routes', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  describe('POST /v1/search', () => {
-    it('should return search results', async () => {
-      const response = await request(app)
-        .post('/v1/search')
-        .set('Authorization', 'Bearer valid-token')
-        .send({ query: 'authentication' });
-
-      expect(response.status).toBe(200);
-      expect(response.body.results).toBeDefined();
-    });
-
-    it('should require authentication', async () => {
-      const response = await request(app)
-        .post('/v1/search')
-        .send({ query: 'test' });
-
-      expect(response.status).toBe(401);
-    });
-  });
-});
-```
+Use `cargo test` for unit and integration tests. Integration tests that require external services should be run with those services available (Postgres, Redis, Neo4j, Zilliz).
 
 ## Debugging
 
-### VS Code Configuration
-
-```json
-// .vscode/launch.json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Debug API Backend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal"
-    },
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Debug Tests",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "test", "--", "--run"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal"
-    }
-  ]
-}
-```
-
-### Logging
-
-```typescript
-import { logger } from './utils/logger';
-
-// Different log levels
-logger.debug('Detailed debug info', { data: someObject });
-logger.info('General information');
-logger.warn('Warning message');
-logger.error('Error occurred', { error: err });
-```
-
-Set `LOG_LEVEL=debug` in `.env` for verbose logging.
+Use VS Code with the `rust-analyzer` and `CodeLLDB` extensions for debugging. A simple launch configuration can invoke `cargo run`.
 
 ## Common Development Tasks
 
-### Adding a New API Endpoint
+### Add a new API endpoint
 
-1. Create route handler in `src/routes/v1/`:
+1. Add handler in `src/routes/v1/` (e.g., `widgets.rs`) and export in `mod.rs`.
+2. Implement business logic in `src/services/`.
+3. Add DB migrations under `migrations/` if schema changes are required.
+4. Run `cargo test` and `cargo fmt`.
 
-```typescript
-// src/routes/v1/widgets.ts
-import { Router } from 'express';
-import { requireAuth } from '../../middleware/auth';
-import { validate } from '../../middleware/validation';
-import { widgetSchema } from '../../schemas/widget';
+### Add a new service client
 
-const router = Router();
-
-router.get('/', requireAuth, async (req, res) => {
-  // Implementation
-});
-
-router.post('/', requireAuth, validate(widgetSchema), async (req, res) => {
-  // Implementation
-});
-
-export default router;
-```
-
-2. Register in `src/routes/v1/index.ts`:
-
-```typescript
-import widgetRoutes from './widgets';
-router.use('/widgets', widgetRoutes);
-```
-
-### Adding a New Service Client
-
-1. Create client in `src/clients/`:
-
-```typescript
-// src/clients/new-service-client.ts
-import axios from 'axios';
-import { handleServiceCall } from './base-client';
-
-const client = axios.create({
-  baseURL: process.env.NEW_SERVICE_URL,
-  timeout: 10000,
-});
-
-export const newService = {
-  async doSomething(params: Params): Promise<Result> {
-    return handleServiceCall('new-service', async () => {
-      const response = await client.post('/endpoint', params);
-      return response.data;
-    });
-  },
-};
-```
-
-2. Add environment variable to `.env.example`:
-
-```env
-NEW_SERVICE_URL=http://localhost:XXXX
-```
+1. Create a new module under `src/clients/` using `reqwest` for HTTP calls.
+2. Add configuration to `src/config/mod.rs` and `.env.example`.
+3. Write unit tests and update documentation.
 
 ## Code Style
 
-- **ESLint** for linting
-- **Prettier** for formatting
-- **TypeScript** strict mode enabled
+- `cargo fmt` for formatting
+- `cargo clippy` for linting
+- Write unit tests and integration tests with `#[cfg(test)]` and `cargo test`
 
-```bash
-# Format code
-npm run format
-
-# Check formatting
-npm run format:check
-```

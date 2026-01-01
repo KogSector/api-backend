@@ -114,9 +114,8 @@ curl http://localhost:3001/health
 ```
 
 2. Start auth-middleware:
-```bash
-cd ../auth-middleware
-npm run dev
+```text
+Start the auth-middleware service as described in its repository README (../auth-middleware/README.md).
 ```
 
 3. Verify URL in environment:
@@ -183,13 +182,17 @@ Error: Migration "20240101_create_users" failed
 
 1. Check migration status:
 ```bash
-npm run migrate:status
+# Using sqlx CLI
+sqlx migrate info
 ```
 
 2. Rollback and retry:
 ```bash
-npm run migrate:rollback
-npm run migrate
+# Revert last migration (sqlx)
+sqlx migrate revert
+
+# Run migrations
+sqlx migrate run
 ```
 
 3. Check for pending transactions:

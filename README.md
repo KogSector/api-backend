@@ -18,17 +18,21 @@ See [docs/architecture.md](docs/architecture.md) for complete system architectur
 ## Quick Start
 
 ```bash
-# Install dependencies
-npm install
+# Build the service
+cargo build
 
 # Configure
 cp .env.example .env
 
-# Run development server
-npm run dev
+# Run database migrations (example using sqlx)
+# Install sqlx-cli if needed: cargo install sqlx-cli --no-default-features --features postgres
+sqlx migrate run
 
-# Run production
-npm start
+# Start development server (hot reload optional)
+cargo run
+
+# Run tests
+cargo test
 ```
 
 ## Documentation

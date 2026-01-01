@@ -42,7 +42,7 @@ The server starts at `http://localhost:3003`.
 | [API Reference](api-reference.md) | Complete REST API documentation |
 | [Configuration](configuration.md) | Environment variables and settings |
 | [Integration](integration.md) | How this service connects to others |
-| [Development](development_rust.md) | Local development setup |
+| [Development](development.md) | Local development setup |
 | [Deployment](deployment.md) | Production deployment guide |
 | [Troubleshooting](troubleshooting.md) | Common issues and solutions |
 

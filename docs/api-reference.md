@@ -280,7 +280,7 @@ ConFuse receives webhooks from connected sources:
 
 ## SDKs
 
-- **JavaScript/TypeScript**: `npm install @confuse/sdk`
+- **JavaScript/TypeScript**: Install `@confuse/sdk` according to the SDK documentation for your chosen package manager.
 - **Python**: `pip install confuse-sdk`
 - **Rust**: `cargo add confuse-sdk`
 
