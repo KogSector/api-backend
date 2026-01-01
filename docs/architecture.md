@@ -27,7 +27,7 @@ ConFuse is a **Knowledge Intelligence Platform** that connects AI agents to orga
 ┌───────────────────────────────────┼───────────────────────────────────────┐
 │                                   ▼                                        │
 │  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │                      API-BACKEND (Node.js)                           │  │
+│  │                      API-BACKEND (Rust / Axum)                       │  │
 │  │                           Port: 3003                                 │  │
 │  │        Central Gateway • REST API • Service Orchestration           │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
@@ -68,7 +68,7 @@ ConFuse is a **Knowledge Intelligence Platform** that connects AI agents to orga
 ## Service Descriptions
 
 ### 1. API Backend (This Service)
-**Port: 3003** | **Language: Node.js**
+**Port: 3003** | **Language: Rust (Axum)**
 
 Central API gateway that:
 - Routes requests to appropriate microservices
@@ -250,7 +250,7 @@ AI Agent asks: "How does authentication work?"
 | frontend | 3000 | HTTP | TypeScript |
 | auth-middleware | 3001 | HTTP | Node.js |
 | chunker | 3002 | HTTP | Rust |
-| api-backend | 3003 | HTTP | Node.js |
+| api-backend | 3003 | HTTP | Rust |
 | mcp-server | 3004 | stdio/HTTP | Rust |
 | embeddings | 3005 | HTTP | Rust |
 | relation-graph | 3018 | HTTP | Rust |

@@ -6,28 +6,30 @@
 
 The **api-backend** is the central nervous system of ConFuse. It's the main entry point for all client applications (web frontend, mobile apps, third-party integrations) and orchestrates requests across all microservices.
 
-## Quick Start
+# Quick Start
 
 ```bash
 # Clone the repository
 git clone https://github.com/confuse/api-backend.git
 cd api-backend
 
-# Install dependencies
-npm install
+# Build the service
+cargo build
 
 # Configure environment
 cp .env.example .env
 # Edit .env with your database and service URLs
 
-# Run database migrations
-npm run migrate
+# Run database migrations (example using sqlx)
+# Install sqlx-cli: `cargo install sqlx-cli --no-default-features --features postgres`
+sqlx migrate run
 
-# Start development server
-npm run dev
+# Start development server (hot reload)
+# Install cargo-watch: `cargo install cargo-watch`
+cargo watch -x 'run'
 
 # Run tests
-npm test
+cargo test
 ```
 
 The server starts at `http://localhost:3003`.
@@ -40,7 +42,7 @@ The server starts at `http://localhost:3003`.
 | [API Reference](api-reference.md) | Complete REST API documentation |
 | [Configuration](configuration.md) | Environment variables and settings |
 | [Integration](integration.md) | How this service connects to others |
-| [Development](development.md) | Local development setup |
+| [Development](development_rust.md) | Local development setup |
 | [Deployment](deployment.md) | Production deployment guide |
 | [Troubleshooting](troubleshooting.md) | Common issues and solutions |
 
@@ -86,12 +88,14 @@ The server starts at `http://localhost:3003`.
 
 | Technology | Purpose |
 |------------|---------|
-| Node.js | Runtime |
-| Express.js | Web framework |
-| TypeScript | Type safety |
+| Rust | Runtime / language |
+| Axum | Web framework |
+| SQLx / SeaORM | Database access (PostgreSQL) |
 | PostgreSQL | Database |
 | Redis | Caching, rate limiting |
-| Jest | Testing |
+| Tokio | Async runtime |
+| Cargo | Build & dependency manager |
+| Rust tests | Testing (`cargo test`) |
 
 ## Related Services
 

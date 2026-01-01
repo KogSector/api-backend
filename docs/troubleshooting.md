@@ -25,8 +25,8 @@ Expected response:
 ### Check Logs
 
 ```bash
-# If running with npm
-npm run dev 2>&1 | grep -i error
+# If running with cargo
+cargo run 2>&1 | grep -i error
 
 # If running in Docker
 docker logs api-backend --tail 100
@@ -200,27 +200,26 @@ psql -U confuse confuse
 SELECT * FROM pg_locks WHERE NOT granted;
 ```
 
-### 7. TypeScript Compilation Errors
+### 7. Rust Compilation Errors
 
 **Symptoms:**
 ```
-error TS2339: Property 'x' does not exist on type 'y'
+error[E0425]: cannot find value `x` in this scope
 ```
 
 **Solutions:**
 
-1. Rebuild node_modules:
+1. Run a full build to see errors:
 ```bash
-rm -rf node_modules
-npm install
+cargo build
 ```
 
-2. Rebuild TypeScript:
+2. Run with verbose output:
 ```bash
-npm run build -- --clean
+cargo build -v
 ```
 
-3. Restart TypeScript server in IDE
+3. Use `rust-analyzer` in your IDE for better diagnostics and quick fixes
 
 ### 8. Memory Issues / Slow Performance
 
@@ -231,22 +230,13 @@ npm run build -- --clean
 
 **Solutions:**
 
-1. Increase Node.js memory:
-```bash
-NODE_OPTIONS="--max-old-space-size=4096" npm run dev
-```
+1. Check service metrics and logs to identify hotspots.
 
-2. Check for memory leaks:
-```bash
-npm run dev -- --inspect
-# Open chrome://inspect
-```
+2. Profile the service with `perf`, `pprof`, or Rust profiling tools (e.g., `cargo-flamegraph`).
 
-3. Review database queries:
-```typescript
-// Enable query logging
-DATABASE_LOG_QUERIES=true
-```
+3. Review database queries and add indexes where needed; enable query logging in Postgres to trace slow queries.
+
+4. Increase available resources (CPU/memory) for the container or VM during heavy loads.
 
 ### 9. CORS Errors
 
@@ -311,12 +301,12 @@ This will output:
 ## Getting Help
 
 1. Check existing issues: https://github.com/confuse/api-backend/issues
-2. Review logs with DEBUG enabled
+2. Review logs with DEBUG/RUST_LOG enabled
 3. Create issue with:
-   - Error message
-   - Steps to reproduce
-   - Environment (OS, Node version)
-   - Relevant log output
+  - Error message
+  - Steps to reproduce
+  - Environment (OS, Rust toolchain version)
+  - Relevant log output
 
 ## Quick Fixes Checklist
 
@@ -326,5 +316,4 @@ This will output:
 - [ ] Are other required services running?
 - [ ] Is the JWT secret consistent across services?
 - [ ] Have you run migrations?
-- [ ] Is the correct Node.js version installed?
-- [ ] Have you tried `rm -rf node_modules && npm install`?
+- [ ] Is the correct Rust toolchain installed (`rustup show`)?
