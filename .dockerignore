@@ -1,0 +1,10 @@
+target/
+.git/
+.gitignore
+.env
+.env.*
+*.md
+docs/
+tests/
+build_output.txt
+Cargo.lock

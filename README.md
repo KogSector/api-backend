@@ -4,60 +4,57 @@ Central API Gateway for the ConFuse Knowledge Intelligence Platform.
 
 ## Overview
 
-This is the **main API gateway** that orchestrates all ConFuse microservices. It provides:
-- Unified REST API for frontend applications
-- Request routing to appropriate microservices
-- Authentication/Authorization enforcement
-- Rate limiting and request validation
-- API versioning
+The API Backend is a **Rust/Axum** service that orchestrates all ConFuse microservices:
 
-## Architecture
-
-See [docs/architecture.md](docs/architecture.md) for complete system architecture.
+- **Unified REST API** for frontend applications
+- **Request routing** to appropriate microservices
+- **Authentication/Authorization** enforcement (JWT & API keys)
+- **Rate limiting** (Redis-backed sliding window)
+- **API versioning** (v1 endpoints)
 
 ## Quick Start
 
 ```bash
-# Build the service
-cargo build
+# Build
+cargo build --release
 
-# Configure
-cp .env.example .env
-
-# Run database migrations (example using sqlx)
-# Install sqlx-cli if needed: cargo install sqlx-cli --no-default-features --features postgres
-sqlx migrate run
-
-# Start development server (hot reload optional)
+# Run locally (requires .env file)
 cargo run
 
-# Run tests
-cargo test
+# With Podman
+podman build -t confuse/api-backend:latest .
+podman run -p 8088:8088 --env-file .env confuse/api-backend:latest
 ```
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/status` | GET | Detailed service status |
+| `/v1/sources` | GET/POST | Source management |
+| `/v1/search` | POST | Hybrid search |
+| `/v1/entities/:id` | GET | Entity details |
+| `/v1/sync/:id` | POST | Trigger sync |
+| `/v1/mcp/capabilities` | GET | MCP tools |
+
+## Service Integration
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| auth-middleware | 3010 | JWT/OAuth authentication |
+| data-connector | 8080 | Source management & sync |
+| relation-graph | 3003 | Knowledge graph & search |
+| mcp-server | 3004 | AI agent tools |
+| embeddings | 3001 | Vector generation |
+| feature-toggle | 3099 | Feature flags |
+
+## Configuration
+
+See `.env` for all configuration options.
 
 ## Documentation
 
-All documentation is in the `docs/` folder:
-
-- [Architecture Overview](docs/architecture.md)
 - [API Reference](docs/api-reference.md)
-- [Integration Guide](docs/integration.md)
-- [Deployment Guide](docs/deployment.md)
-
-## Related Services
-
-| Service | Purpose | Port |
-|---------|---------|------|
-| auth-middleware | JWT/OAuth authentication | 3001 |
-| data-connector | Data ingestion from sources | 8000 |
-| mcp-server | MCP protocol for AI agents | 3004 |
-| client-connector | Agent connection gateway | 8095 |
-| embeddings | Vector generation | 3005 |
-| relation-graph | Knowledge graph | 3018 |
-| chunker | Text segmentation | 3002 |
-| code-normalize-fetch | Code preprocessing | 8090 |
-| frontend | Web UI | 3000 |
-
-## License
-
-MIT
+- [Architecture](docs/architecture.md)
+- [Development Guide](docs/development.md)
