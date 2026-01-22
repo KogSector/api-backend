@@ -14,6 +14,7 @@ use api_backend::{Config, AppError};
 use api_backend::clients::{AuthClient, DataConnectorClient, RelationGraphClient, McpClient};
 use api_backend::middleware::auth::AuthLayer;
 use api_backend::routes::v1::{v1_router, AppState};
+use api_backend::kafka::{EventProducer, ProducerConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -45,6 +46,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     tracing::info!("Service clients initialized");
     
+    // Initialize Kafka event producer (optional - graceful fallback to HTTP)
+    let event_producer = match EventProducer::new(ProducerConfig::from_env()) {
+        Ok(producer) => {
+            tracing::info!("✅ Kafka event producer initialized");
+            Some(Arc::new(producer))
+        }
+        Err(e) => {
+            tracing::warn!("⚠️  Kafka unavailable, falling back to HTTP: {}", e);
+            None
+        }
+    };
+    
     // Check if auth bypass is enabled via feature toggle (development only)
     // In production, this would check the feature-toggle service
     let auth_bypass_enabled = std::env::var("AUTH_BYPASS_ENABLED")
@@ -66,6 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         relation_graph_client: Arc::new(relation_graph_client),
         mcp_client: Arc::new(mcp_client),
         auth_layer,
+        event_producer,
     };
     
     // Build CORS layer

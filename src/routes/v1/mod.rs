@@ -22,6 +22,8 @@ pub struct AppState {
     pub relation_graph_client: Arc<crate::clients::RelationGraphClient>,
     pub mcp_client: Arc<crate::clients::McpClient>,
     pub auth_layer: AuthLayer,
+    /// Kafka event producer for event-driven operations (optional for graceful fallback)
+    pub event_producer: Option<Arc<crate::kafka::EventProducer>>,
 }
 
 /// Create the V1 router

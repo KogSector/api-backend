@@ -1,26 +1,96 @@
 //! Sync endpoints
+//!
+//! Event-driven sync operations using Kafka.
 
 use axum::{
     extract::{Path, State, Extension},
     Json,
 };
 
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::middleware::auth::AuthenticatedUser;
-use crate::models::{SyncJob, JobStatusResponse};
+use crate::kafka::events::{
+    SourceSyncRequestedEvent, 
+    SourceType as EventSourceType, 
+    SyncRequestResponse, 
+    topics
+};
+use crate::models::{JobStatusResponse, SourceType, Source};
 use super::AppState;
 
+/// Map model SourceType to event SourceType
+fn map_source_type(source_type: &SourceType) -> EventSourceType {
+    match source_type {
+        SourceType::Github => EventSourceType::Github,
+        SourceType::Gitlab => EventSourceType::Gitlab,
+        SourceType::Gdrive => EventSourceType::GoogleDrive,
+        SourceType::Notion => EventSourceType::Notion,
+        SourceType::Upload => EventSourceType::FileUpload,
+        _ => EventSourceType::Local, // Default for other types
+    }
+}
+
+/// Extract URL from source configuration
+fn extract_source_url(source: &Source) -> String {
+    if let Some(ref metadata) = source.metadata {
+        if let Some(url) = metadata.get("url") {
+            if let Some(s) = url.as_str() {
+                return s.to_string();
+            }
+        }
+    }
+    format!("source://{}", source.id)
+}
+
 /// POST /v1/sync/:source_id - Trigger sync for a source
+/// 
+/// Publishes SourceSyncRequested event to Kafka if available,
+/// falls back to HTTP if Kafka is unavailable.
 pub async fn trigger_sync(
     State(state): State<AppState>,
-    Extension(_user): Extension<AuthenticatedUser>,
+    Extension(user): Extension<AuthenticatedUser>,
     Path(source_id): Path<String>,
-) -> Result<Json<SyncJob>> {
+) -> Result<Json<SyncRequestResponse>> {
+    // Try event-driven path first
+    if let Some(ref producer) = state.event_producer {
+        // Lookup source to get details for the event
+        let source = state.data_connector_client
+            .get_source(&user.0.id, &source_id)
+            .await?;
+        
+        let event_source_type = map_source_type(&source.source_type);
+        let source_url = extract_source_url(&source);
+        
+        let event = SourceSyncRequestedEvent::new(
+            source_id.clone(),
+            event_source_type,
+            source_url,
+        ).with_user(user.0.id.clone());
+        
+        producer.publish(topics::SOURCE_SYNC_REQUESTED, &event, None).await
+            .map_err(|e| AppError::internal(format!("Event publish failed: {}", e)))?;
+        
+        tracing::info!(
+            "Published sync event: source_id={}, correlation_id={}",
+            source_id,
+            event.correlation_id()
+        );
+        
+        return Ok(Json(SyncRequestResponse::from(&event)));
+    }
+    
+    // Fallback to HTTP-based sync
+    tracing::debug!("Kafka unavailable, using HTTP fallback for sync");
     let job = state.data_connector_client
         .sync_source(&source_id)
         .await?;
     
-    Ok(Json(job))
+    Ok(Json(SyncRequestResponse {
+        correlation_id: job.job_id.clone(),
+        event_id: job.job_id,
+        status: "sync_started".to_string(),
+        timestamp: chrono::Utc::now(),
+    }))
 }
 
 /// GET /v1/sync/:job_id/status - Get sync job status

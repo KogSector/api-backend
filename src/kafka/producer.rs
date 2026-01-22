@@ -151,7 +151,7 @@ impl EventProducer {
         let producer: FutureProducer = ClientConfig::new()
             .set("bootstrap.servers", &config.bootstrap_servers)
             .set("client.id", &config.client_id)
-            .set("compression.type", "zstd")
+            .set("compression.type", "gzip")
             .set("acks", "all")
             .set("enable.idempotence", "true")
             .set("request.timeout.ms", config.request_timeout_ms.to_string())
