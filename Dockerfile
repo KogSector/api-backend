@@ -14,6 +14,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
+    cmake \
+    build-essential \
+    libsasl2-dev \
+    librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy all source code (uses .dockerignore)
@@ -30,6 +34,8 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
     curl \
+    librdkafka1 \
+    libsasl2-2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
