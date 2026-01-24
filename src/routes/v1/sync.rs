@@ -68,7 +68,7 @@ pub async fn trigger_sync(
         ).with_user(user.0.id.clone());
         
         producer.publish(topics::SOURCE_SYNC_REQUESTED, &event, None).await
-            .map_err(|e| AppError::internal(format!("Event publish failed: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("Event publish failed: {}", e)))?;
         
         tracing::info!(
             "Published sync event: source_id={}, correlation_id={}",

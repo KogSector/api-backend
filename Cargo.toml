@@ -42,7 +42,7 @@ dotenvy = "0.15"
 # =============================================================================
 # Event-Driven Architecture (Kafka)
 # =============================================================================
-rdkafka = { version = "0.38", features = ["tokio", "dynamic-linking"] }
+rdkafka = { version = "0.36", features = ["cmake-build", "tokio"] }
 
 # =============================================================================
 # Circuit Breaker & Resilience

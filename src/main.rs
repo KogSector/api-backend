@@ -14,7 +14,7 @@ use api_backend::{Config, AppError};
 use api_backend::clients::{AuthClient, DataConnectorClient, RelationGraphClient, McpClient};
 use api_backend::middleware::auth::AuthLayer;
 use api_backend::routes::v1::{v1_router, AppState};
-use api_backend::kafka::{EventProducer, ProducerConfig};
+use api_backend::kafka::{EventProducer, producer::ProducerConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
