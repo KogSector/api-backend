@@ -6,8 +6,13 @@ pub mod search;
 pub mod entities;
 pub mod sync;
 pub mod mcp;
+pub mod urls;
+pub mod dashboard;
+pub mod repositories;
+pub mod documents;
+pub mod agents;
 
-use axum::{Router, routing::{get, post, delete}};
+use axum::{Router, routing::{get, post, delete, put}};
 use std::sync::Arc;
 
 use crate::middleware::auth::{AuthLayer, auth_middleware, optional_auth_middleware};
@@ -53,7 +58,46 @@ pub fn v1_router(state: AppState) -> Router {
         // MCP
         .route("/mcp/search", post(mcp::mcp_search))
         .route("/mcp/context", post(mcp::mcp_context))
-        .route("/mcp/capabilities", get(mcp::get_capabilities))
+        .route("/mcp/capabilities", get(mcp::get_capabilities));
+    
+    // URL routes (public for now to simplify development)
+    let url_routes = Router::new()
+        .route("/api/urls", get(urls::list_urls))
+        .route("/api/urls", post(urls::create_url))
+        .route("/api/urls/:id", get(urls::get_url))
+        .route("/api/urls/:id", delete(urls::delete_url));
+    
+    // Dashboard routes
+    let dashboard_routes = Router::new()
+        .route("/api/dashboard/stats", get(dashboard::get_stats));
+    
+    // Repository routes
+    let repository_routes = Router::new()
+        .route("/api/repositories", get(repositories::list_repositories))
+        .route("/api/repositories", post(repositories::create_repository))
+        .route("/api/repositories/:id", get(repositories::get_repository))
+        .route("/api/repositories/:id", delete(repositories::delete_repository));
+    
+    // Document routes
+    let document_routes = Router::new()
+        .route("/api/documents", get(documents::list_documents))
+        .route("/api/documents", post(documents::create_document))
+        .route("/api/documents/:id", delete(documents::delete_document))
+        .route("/api/documents/analytics", get(documents::get_analytics));
+    
+    // Agent routes
+    let agent_routes = Router::new()
+        .route("/api/agents", get(agents::list_agents))
+        .route("/api/agents", post(agents::create_agent))
+        .route("/api/agents/:id", get(agents::get_agent))
+        .route("/api/agents/:id", put(agents::update_agent))
+        .route("/api/agents/:id", delete(agents::delete_agent))
+        .route("/api/agents/:id/test", post(agents::test_agent))
+        .route("/api/agents/:id/invoke", post(agents::invoke_agent))
+        .route("/api/agents/:id/context", get(agents::get_agent_context));
+    
+    // Apply auth middleware to protected routes
+    let protected_routes = protected_routes
         .layer(axum::middleware::from_fn_with_state(
             state.auth_layer.clone(),
             auth_middleware,
@@ -64,10 +108,15 @@ pub fn v1_router(state: AppState) -> Router {
         .route("/webhooks/github", post(webhooks::github_webhook))
         .route("/webhooks/gitlab", post(webhooks::gitlab_webhook));
     
-    // Combine all routes under /v1
+    // Combine all routes
     Router::new()
         .merge(public_routes)
         .nest("/v1", protected_routes)
+        .merge(url_routes)
+        .merge(dashboard_routes)
+        .merge(repository_routes)
+        .merge(document_routes)
+        .merge(agent_routes)
         .merge(webhook_routes)
         .with_state(state)
 }

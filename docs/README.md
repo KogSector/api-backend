@@ -32,7 +32,7 @@ cargo watch -x 'run'
 cargo test
 ```
 
-The server starts at `http://localhost:3003`.
+The server starts at `http://localhost:8088`.
 
 ## Documentation
 
@@ -57,7 +57,7 @@ The server starts at `http://localhost:3003`.
                                              ▼
 ┌────────────────────────────────────────────────────────────────────┐
 │                        API-BACKEND (This Service)                   │
-│                              Port: 3003                             │
+│                              Port: 8088                             │
 │                                                                     │
 │  • REST API for all client applications                            │
 │  • Request routing to microservices                                │
@@ -101,12 +101,14 @@ The server starts at `http://localhost:3003`.
 
 | Service | Port | Relationship |
 |---------|------|--------------|
-| auth-middleware | 3001 | JWT validation, user sessions |
-| data-connector | 8000 | Source management, webhooks |
+| auth-middleware | 3010 | JWT validation, user sessions |
+| data-connector | 8081 | Source management, webhooks |
 | relation-graph | 3018 | Knowledge search |
 | mcp-server | 3004 | MCP tool calls |
 | embeddings | 3005 | Vector operations |
 | frontend | 3000 | Web UI (main consumer) |
+| feature-toggle | 3099 | Feature flags, auth bypass |
+| client-connector | 3020 | AI agent gateway |
 
 ## License
 

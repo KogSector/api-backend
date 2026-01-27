@@ -47,15 +47,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Service clients initialized");
     
     // Initialize Kafka event producer (optional - graceful fallback to HTTP)
-    let event_producer = match EventProducer::new(ProducerConfig::from_env()) {
-        Ok(producer) => {
-            tracing::info!("✅ Kafka event producer initialized");
-            Some(Arc::new(producer))
+    let kafka_enabled = std::env::var("KAFKA_ENABLED")
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(true);
+    
+    let event_producer = if kafka_enabled {
+        match EventProducer::new(ProducerConfig::from_env()) {
+            Ok(producer) => {
+                tracing::info!("✅ Kafka event producer initialized");
+                Some(Arc::new(producer))
+            }
+            Err(e) => {
+                tracing::warn!("⚠️  Kafka unavailable, falling back to HTTP: {}", e);
+                None
+            }
         }
-        Err(e) => {
-            tracing::warn!("⚠️  Kafka unavailable, falling back to HTTP: {}", e);
-            None
-        }
+    } else {
+        tracing::info!("ℹ️  Kafka disabled via KAFKA_ENABLED=false");
+        None
     };
     
     // Check if auth bypass is enabled via feature toggle (development only)

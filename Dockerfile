@@ -26,8 +26,8 @@ COPY . .
 # Build the application
 RUN cargo build --release
 
-# Stage 2: Runtime
-FROM docker.io/debian:bookworm-slim
+# Stage 2: Runtime - Use trixie for GLIBC 2.38+ compatibility
+FROM docker.io/debian:trixie-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
