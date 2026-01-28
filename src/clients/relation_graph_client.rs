@@ -82,7 +82,7 @@ pub struct GraphServiceResponse<T> {
 }
 
 /// Build relationships response data
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct BuildResponseData {
     pub source_id: String,
     #[serde(default)]
@@ -94,7 +94,7 @@ pub struct BuildResponseData {
 }
 
 /// Edge/fact from graph
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct Edge {
     pub uuid: String,
     pub fact: String,
@@ -109,7 +109,7 @@ pub struct Edge {
 }
 
 /// Node from graph
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct Node {
     pub uuid: String,
     pub name: String,
@@ -122,7 +122,7 @@ pub struct Node {
 }
 
 /// Temporal search response data
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct TemporalSearchData {
     pub query: String,
     #[serde(default)]
@@ -138,7 +138,7 @@ pub struct TemporalSearchData {
 }
 
 /// Evolution record
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct EvolutionRecord {
     pub uuid: String,
     pub fact: String,
@@ -151,7 +151,7 @@ pub struct EvolutionRecord {
 }
 
 /// Entity evolution response data
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct EntityEvolutionData {
     pub entity: String,
     pub current_state: Vec<EvolutionRecord>,
@@ -161,7 +161,7 @@ pub struct EntityEvolutionData {
 }
 
 /// Episode added response data
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct EpisodeAddedData {
     pub name: String,
     pub episode_type: String,
@@ -211,7 +211,7 @@ impl RelationGraphClient {
     }
     
     /// Simple search (GET)
-    pub async fn search(&self, query: &str, limit: u32) -> Result<GraphServiceResponse<TemporalSearchData>, AppError> {
+    pub async fn search_simple(&self, query: &str, limit: u32) -> Result<GraphServiceResponse<TemporalSearchData>, AppError> {
         let response = self.client
             .get(format!("{}/api/v1/search?query={}&limit={}", self.base_url, query, limit))
             .send()
@@ -263,7 +263,7 @@ impl RelationGraphClient {
     }
     
     /// Get context for a chunk (legacy compatibility)
-    pub async fn get_context(&self, chunk_id: &str) -> Result<GraphServiceResponse<TemporalSearchData>, AppError> {
+    pub async fn get_context_legacy(&self, chunk_id: &str) -> Result<GraphServiceResponse<TemporalSearchData>, AppError> {
         let response = self.client
             .get(format!("{}/api/v1/context/{}", self.base_url, chunk_id))
             .send()
@@ -311,4 +311,60 @@ impl RelationGraphClient {
             .map(|r| r.status().is_success())
             .unwrap_or(false)
     }
+    
+    /// Unified search (hybrid vector + graph)
+    pub async fn search(&self, request: &crate::models::SearchRequest) -> Result<crate::models::SearchResponse, AppError> {
+        let response = self.client
+            .post(format!("{}/api/v1/search", self.base_url))
+            .json(request)
+            .send()
+            .await?;
+        
+        handle_service_response(response, "relation-graph").await
+    }
+    
+    /// Vector-only search
+    pub async fn search_vector(&self, request: &crate::models::SearchRequest) -> Result<crate::models::SearchResponse, AppError> {
+        let response = self.client
+            .post(format!("{}/api/v1/search/vector", self.base_url))
+            .json(request)
+            .send()
+            .await?;
+        
+        handle_service_response(response, "relation-graph").await
+    }
+    
+    /// Graph-only search
+    pub async fn search_graph(&self, request: &crate::models::SearchRequest) -> Result<crate::models::SearchResponse, AppError> {
+        let response = self.client
+            .post(format!("{}/api/v1/search/graph", self.base_url))
+            .json(request)
+            .send()
+            .await?;
+        
+        handle_service_response(response, "relation-graph").await
+    }
+    
+    /// Get entity by ID
+    pub async fn get_entity(&self, entity_id: &str, hops: u32) -> Result<crate::models::Entity, AppError> {
+        let url = format!("{}/api/v1/entities/{}?hops={}", self.base_url, entity_id, hops);
+        
+        let response = self.client
+            .get(url)
+            .send()
+            .await?;
+        
+        handle_service_response(response, "relation-graph").await
+    }
+    
+    /// Get context for a chunk (for MCP)
+    pub async fn get_context(&self, chunk_id: &str) -> Result<serde_json::Value, AppError> {
+        let response = self.client
+            .get(format!("{}/api/v1/context/{}", self.base_url, chunk_id))
+            .send()
+            .await?;
+        
+        handle_service_response(response, "relation-graph").await
+    }
 }
+

@@ -54,9 +54,17 @@ pub async fn status_check(State(state): State<AppState>) -> Result<Json<HealthRe
         status: if mcp_healthy { "healthy" } else { "unhealthy" }.to_string(),
         latency: Some(mcp_start.elapsed().as_millis() as u64),
     });
+
+    // Check unified-processor
+    let up_start = std::time::Instant::now();
+    let up_healthy = state.unified_processor_client.health_check().await;
+    services.insert("unified-processor".to_string(), ServiceHealth {
+        status: if up_healthy { "healthy" } else { "unhealthy" }.to_string(),
+        latency: Some(up_start.elapsed().as_millis() as u64),
+    });
     
     // Overall status
-    let all_healthy = auth_healthy && dc_healthy && rg_healthy && mcp_healthy;
+    let all_healthy = auth_healthy && dc_healthy && rg_healthy && mcp_healthy && up_healthy;
     
     Ok(Json(HealthResponse {
         status: if all_healthy { "healthy" } else { "degraded" }.to_string(),
@@ -65,4 +73,13 @@ pub async fn status_check(State(state): State<AppState>) -> Result<Json<HealthRe
         timestamp: Some(Utc::now().to_rfc3339()),
         services: Some(services),
     }))
+}
+
+/// GET /metrics - Prometheus metrics endpoint
+pub async fn metrics() -> String {
+    // TODO: Implement actual Prometheus metrics collection
+    // For now, return basic uptime metric
+    format!(
+        "# HELP up Service up status\n# TYPE up gauge\nup 1\n# HELP api_requests_total Total requests\n# TYPE api_requests_total counter\napi_requests_total 0\n"
+    )
 }

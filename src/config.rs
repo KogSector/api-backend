@@ -23,6 +23,7 @@ pub struct Config {
     pub relation_graph_url: String,
     pub mcp_server_url: String,
     pub feature_toggle_url: String,
+    pub unified_processor_url: String,
     
     // CORS
     pub cors_origins: Vec<String>,
@@ -68,6 +69,9 @@ impl Config {
             
             feature_toggle_url: env::var("FEATURE_TOGGLE_SERVICE_URL")
                 .unwrap_or_else(|_| "http://localhost:3099".to_string()),
+            
+            unified_processor_url: env::var("UNIFIED_PROCESSOR_URL")
+                .unwrap_or_else(|_| "http://localhost:8090".to_string()),
             
             cors_origins: env::var("CORS_ORIGINS")
                 .unwrap_or_else(|_| "http://localhost:3000".to_string())

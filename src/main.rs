@@ -11,7 +11,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use api_backend::{Config, AppError};
-use api_backend::clients::{AuthClient, DataConnectorClient, RelationGraphClient, McpClient};
+use api_backend::clients::{AuthClient, DataConnectorClient, RelationGraphClient, McpClient, UnifiedProcessorClient};
 use api_backend::middleware::auth::AuthLayer;
 use api_backend::routes::v1::{v1_router, AppState};
 use api_backend::kafka::{EventProducer, producer::ProducerConfig};
@@ -43,8 +43,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data_connector_client = DataConnectorClient::new(&config.data_connector_url)?;
     let relation_graph_client = RelationGraphClient::new(&config.relation_graph_url)?;
     let mcp_client = McpClient::new(&config.mcp_server_url)?;
+    let unified_processor_client = UnifiedProcessorClient::new(&config.unified_processor_url)?;
     
-    tracing::info!("Service clients initialized");
+    tracing::info!("Service clients initialized (including unified-processor)");
     
     // Initialize Kafka event producer (optional - graceful fallback to HTTP)
     let kafka_enabled = std::env::var("KAFKA_ENABLED")
@@ -87,6 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         data_connector_client: Arc::new(data_connector_client),
         relation_graph_client: Arc::new(relation_graph_client),
         mcp_client: Arc::new(mcp_client),
+        unified_processor_client: Arc::new(unified_processor_client),
         auth_layer,
         event_producer,
     };

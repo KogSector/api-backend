@@ -138,7 +138,7 @@ pub struct ServiceResponse<T> {
 }
 
 /// Processed response data
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct ProcessedData {
     pub source_id: String,
     #[serde(default)]
@@ -150,7 +150,7 @@ pub struct ProcessedData {
 }
 
 /// Embedding response data
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct EmbeddingData {
     pub embedding: Vec<f32>,
     pub dimension: u32,
@@ -160,7 +160,7 @@ pub struct EmbeddingData {
 }
 
 /// Batch embedding response data
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct BatchEmbeddingData {
     pub embeddings: Vec<Vec<f32>>,
     pub count: u32,
@@ -171,7 +171,7 @@ pub struct BatchEmbeddingData {
 }
 
 /// Search result item
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct SearchResult {
     pub source_id: String,
     pub chunk_id: String,
@@ -188,7 +188,7 @@ pub struct SearchResult {
 }
 
 /// Search response data
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct SearchData {
     pub query: String,
     pub results: Vec<SearchResult>,

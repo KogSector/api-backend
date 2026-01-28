@@ -11,6 +11,7 @@ pub mod dashboard;
 pub mod repositories;
 pub mod documents;
 pub mod agents;
+pub mod processing;
 
 use axum::{Router, routing::{get, post, delete, put}};
 use std::sync::Arc;
@@ -26,6 +27,7 @@ pub struct AppState {
     pub data_connector_client: Arc<crate::clients::DataConnectorClient>,
     pub relation_graph_client: Arc<crate::clients::RelationGraphClient>,
     pub mcp_client: Arc<crate::clients::McpClient>,
+    pub unified_processor_client: Arc<crate::clients::UnifiedProcessorClient>,
     pub auth_layer: AuthLayer,
     /// Kafka event producer for event-driven operations (optional for graceful fallback)
     pub event_producer: Option<Arc<crate::kafka::EventProducer>>,
@@ -36,7 +38,8 @@ pub fn v1_router(state: AppState) -> Router {
     // Public routes (no auth required)
     let public_routes = Router::new()
         .route("/health", get(health::health_check))
-        .route("/status", get(health::status_check));
+        .route("/status", get(health::status_check))
+        .route("/metrics", get(health::metrics));
     
     // Protected routes (auth required)
     let protected_routes = Router::new()
@@ -58,7 +61,14 @@ pub fn v1_router(state: AppState) -> Router {
         // MCP
         .route("/mcp/search", post(mcp::mcp_search))
         .route("/mcp/context", post(mcp::mcp_context))
-        .route("/mcp/capabilities", get(mcp::get_capabilities));
+        .route("/mcp/capabilities", get(mcp::get_capabilities))
+        // Processing (unified-processor integration)
+        .route("/process", post(processing::process_files))
+        .route("/chunk", post(processing::chunk_content))
+        .route("/embed", post(processing::embed_text))
+        .route("/embed/batch", post(processing::embed_batch))
+        .route("/search/semantic", post(processing::semantic_search))
+        .route("/processor/status", get(processing::get_processor_status));
     
     // URL routes (public for now to simplify development)
     let url_routes = Router::new()
