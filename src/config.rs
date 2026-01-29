@@ -24,6 +24,7 @@ pub struct Config {
     pub mcp_server_url: String,
     pub feature_toggle_url: String,
     pub unified_processor_url: String,
+    pub enhanced_graph_url: String,  // Added for new graph service
     
     // CORS
     pub cors_origins: Vec<String>,
@@ -72,6 +73,9 @@ impl Config {
             
             unified_processor_url: env::var("UNIFIED_PROCESSOR_URL")
                 .unwrap_or_else(|_| "http://localhost:8090".to_string()),
+                
+            enhanced_graph_url: env::var("ENHANCED_GRAPH_URL")
+                .unwrap_or_else(|_| "http://localhost:3005".to_string()),
             
             cors_origins: env::var("CORS_ORIGINS")
                 .unwrap_or_else(|_| "http://localhost:3000".to_string())

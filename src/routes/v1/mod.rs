@@ -28,6 +28,7 @@ pub struct AppState {
     pub relation_graph_client: Arc<crate::clients::RelationGraphClient>,
     pub mcp_client: Arc<crate::clients::McpClient>,
     pub unified_processor_client: Arc<crate::clients::UnifiedProcessorClient>,
+    pub enhanced_graph_client: Arc<crate::clients::EnhancedGraphClient>,
     pub auth_layer: AuthLayer,
     /// Kafka event producer for event-driven operations (optional for graceful fallback)
     pub event_producer: Option<Arc<crate::kafka::EventProducer>>,

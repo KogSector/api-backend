@@ -44,8 +44,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let relation_graph_client = RelationGraphClient::new(&config.relation_graph_url)?;
     let mcp_client = McpClient::new(&config.mcp_server_url)?;
     let unified_processor_client = UnifiedProcessorClient::new(&config.unified_processor_url)?;
+    let enhanced_graph_client = api_backend::clients::EnhancedGraphClient::new(&config.enhanced_graph_url)?;
     
-    tracing::info!("Service clients initialized (including unified-processor)");
+    tracing::info!("Service clients initialized (including unified-processor and enhanced-graph)");
     
     // Initialize Kafka event producer (optional - graceful fallback to HTTP)
     let kafka_enabled = std::env::var("KAFKA_ENABLED")
@@ -89,6 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         relation_graph_client: Arc::new(relation_graph_client),
         mcp_client: Arc::new(mcp_client),
         unified_processor_client: Arc::new(unified_processor_client),
+        enhanced_graph_client: Arc::new(enhanced_graph_client),
         auth_layer,
         event_producer,
     };
