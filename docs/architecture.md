@@ -1,91 +1,17 @@
-# ConFuse Architecture Overview
+# ConFuse API Backend Architecture
 
 ## System Architecture
 
-ConFuse is a **Knowledge Intelligence Platform** that connects AI agents to organizational knowledge across code repositories, documents, chat, and other data sources.
+ConFuse is a **Knowledge Intelligence Platform** that enables AI agents to access, understand, and reason over your codebase and documents.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              AI AGENTS                                       │
-│         Cursor, Windsurf, Claude, ChatGPT, VS Code, Custom Agents           │
-└───────────────────────────────────┬─────────────────────────────────────────┘
-                                    │ MCP Protocol (WebSocket/SSE)
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        CLIENT-CONNECTOR (Python)                             │
-│                              Port: 8095                                      │
-│   • WebSocket/SSE Transport  • JWT/API Key Auth  • Session Management       │
-└───────────────────────────────────┬─────────────────────────────────────────┘
-                                    │ subprocess (stdio) / HTTP
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          MCP-SERVER (Rust)                                   │
-│                              Port: 3004                                      │
-│   • MCP Protocol (JSON-RPC 2.0)  • Connectors  • Tools & Resources         │
-└───────────────────────────────────┬─────────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────┼───────────────────────────────────────┐
-│                                   ▼                                        │
-│  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │                      API-BACKEND (Rust / Axum)                       │  │
-│  │                           Port: 3003                                 │  │
-│  │        Central Gateway • REST API • Service Orchestration           │  │
-│  └─────────────────────────────────────────────────────────────────────┘  │
-│                                   │                                        │
-│      ┌────────────┬───────────────┼───────────────┬────────────┐          │
-│      ▼            ▼               ▼               ▼            ▼          │
-│  ┌────────┐  ┌─────────┐   ┌───────────┐  ┌──────────┐  ┌──────────┐     │
-│  │  Auth  │  │  Data   │   │  Code     │  │ Chunker  │  │Embeddings│     │
-│  │Middlew.│  │Connector│   │Normalize  │  │          │  │          │     │
-│  │ :3001  │  │ :8000   │   │Fetch:8090 │  │  :3002   │  │  :3005   │     │
-│  └────────┘  └─────────┘   └───────────┘  └──────────┘  └──────────┘     │
-│                                   │               │            │          │
-│                                   └───────────────┼────────────┘          │
-│                                                   ▼                        │
-│                              ┌─────────────────────────────────┐          │
-│                              │      RELATION-GRAPH (Rust)      │          │
-│                              │           Port: 3018            │          │
-│                              │  Neo4j + Zilliz (Hybrid Search) │          │
-│                              └─────────────────────────────────┘          │
-│                                                                            │
-│                         CONFUSE INFRASTRUCTURE                             │
-└────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            DATA SOURCES                                      │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │
-│  │ GitHub  │ │ GitLab  │ │Bitbucket│ │ G Drive │ │ Dropbox │ │Local FS │   │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘   │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐               │
-│  │ Notion  │ │Confluenc│ │  Slack  │ │  Jira   │ │ Linear  │               │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘               │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+The API Backend serves as the central gateway (Port: 8088) that orchestrates all ConFuse microservices.
 
 ---
 
 ## Service Descriptions
 
 ### 1. API Backend (This Service)
-**Port: 3003** | **Language: Rust (Axum)**
-
-# ConFuse Architecture Overview
-
-## System Architecture
-
-ConFuse is a Knowledge Intelligence Platform connecting AI agents to organizational knowledge across code repositories, documents, chat, and other data sources.
-
-At a high level:
-
-- Frontend (Next.js): UI and client interactions.
-- API Backend (Rust / Axum): Central gateway and orchestration layer (Port: 3003).
-- MCP Server (Rust): Connector and tool orchestration for agent integrations (Port: 3004).
-- Client Connector (Python): Agent transports (WebSocket/SSE) and session management (Port: 8095).
-- Data Connector (Python): Ingests external sources and triggers pipelines (Port: 8000).
-- Chunker, Embeddings, Relation Graph, Code Normalize: Rust services handling processing, indexing, and graph storage.
-
-Services communicate over HTTP/REST and gRPC where appropriate. Datastores include PostgreSQL (primary), Redis (cache/locks), Neo4j (graph), and a vector store for embeddings.
+**Port: 8088** | **Language: Rust (Axum)**
 ### 9. Client Connector
 **Port: 8095** | **Language: Python**
 
@@ -195,15 +121,15 @@ AI Agent asks: "How does authentication work?"
 | Service | Port | Protocol | Language |
 |---------|------|----------|----------|
 | frontend | 3000 | HTTP | TypeScript |
-| auth-middleware | 3001 | HTTP | External service (see auth-middleware repo) |
-| chunker | 3002 | HTTP | Rust |
-| api-backend | 3003 | HTTP | Rust |
+| auth-middleware | 3010 | HTTP | TypeScript |
+| feature-toggle | 3099 | HTTP | TypeScript |
+| data-connector | 8080 | HTTP | Python |
+| api-backend | 8088 | HTTP | Rust |
 | mcp-server | 3004 | stdio/HTTP | Rust |
-| embeddings | 3005 | HTTP | Rust |
-| relation-graph | 3018 | HTTP | Rust |
-| data-connector | 8000 | HTTP | Python |
+| embeddings | 3001 | HTTP | Rust |
+| relation-graph | 3003 | HTTP | Python |
 | code-normalize-fetch | 8090 | HTTP | Rust |
-| client-connector | 8095 | WS/HTTP | Python |
+| client-connector | 3020 | WS/HTTP | Python |
 
 ---
 
