@@ -6,7 +6,7 @@
 # =============================================================================
 
 # Stage 1: Build - Use latest stable Rust
-FROM docker.io/rust:latest AS builder
+FROM rust:1.84.0-slim AS builder
 
 WORKDIR /app
 
