@@ -12,3 +12,6 @@ pub use data_connector_client::DataConnectorClient;
 pub use relation_graph_client::RelationGraphClient;
 pub use mcp_client::McpClient;
 pub use unified_processor_client::UnifiedProcessorClient;
+
+// Alias for backward compatibility
+pub type EnhancedGraphClient = RelationGraphClient;

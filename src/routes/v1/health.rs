@@ -1,14 +1,16 @@
-//! Health and status endpoints
+//! Health and status endpoints with connectivity infrastructure
 
-use axum::{extract::State, Json};
+use axum::{extract::State, http::StatusCode, Json};
 use chrono::Utc;
+use confuse_connectivity::{Check, HealthChecker};
+use confuse_connectivity::registry::health::{HealthCheckResult, ComponentHealth, HealthStatus};
 use std::collections::HashMap;
 
 use crate::error::Result;
 use crate::models::{HealthResponse, ServiceHealth};
 use super::AppState;
 
-/// GET /health - Basic health check
+/// GET /health - Basic health check (backward compatible)
 pub async fn health_check() -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "healthy".to_string(),
@@ -19,7 +21,43 @@ pub async fn health_check() -> Json<HealthResponse> {
     })
 }
 
-/// GET /status - Detailed status with downstream service health
+/// GET /health/detailed - Detailed health check using connectivity infrastructure
+pub async fn health_check_detailed(
+    State(state): State<AppState>,
+) -> (StatusCode, Json<HealthCheckResult>) {
+    let checker = create_health_checker(&state).await;
+    let result = checker.check_health().await;
+    
+    let status_code = match result.status {
+        HealthStatus::Healthy => StatusCode::OK,
+        HealthStatus::Degraded => StatusCode::OK, // Still accepting traffic
+        HealthStatus::Unhealthy => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    
+    (status_code, Json(result))
+}
+
+/// GET /health/ready - Readiness probe for Kubernetes
+pub async fn readiness(
+    State(state): State<AppState>,
+) -> (StatusCode, Json<HealthCheckResult>) {
+    health_check_detailed(State(state)).await
+}
+
+/// GET /health/live - Liveness probe for Kubernetes
+pub async fn liveness() -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": "alive",
+            "service": "api-backend",
+            "version": env!("CARGO_PKG_VERSION"),
+            "timestamp": chrono::Utc::now().timestamp()
+        })),
+    )
+}
+
+/// GET /status - Detailed status with downstream service health (backward compatible)
 pub async fn status_check(State(state): State<AppState>) -> Result<Json<HealthResponse>> {
     let mut services = HashMap::new();
     
@@ -82,4 +120,36 @@ pub async fn metrics() -> String {
     format!(
         "# HELP up Service up status\n# TYPE up gauge\nup 1\n# HELP api_requests_total Total requests\n# TYPE api_requests_total counter\napi_requests_total 0\n"
     )
+}
+
+async fn create_health_checker(state: &AppState) -> HealthChecker {
+    let version = env!("CARGO_PKG_VERSION");
+    
+    HealthChecker::new(version)
+        // Add downstream service checks with proper URLs
+        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
+            "auth-middleware",
+            format!("{}/health", state.config.auth_middleware_url),
+            5000,
+        ))
+        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
+            "data-connector",
+            format!("{}/health", state.config.data_connector_url),
+            5000,
+        ))
+        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
+            "relation-graph",
+            format!("{}/health", state.config.relation_graph_url),
+            5000,
+        ))
+        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
+            "mcp-server",
+            format!("{}/health", state.config.mcp_server_url),
+            5000,
+        ))
+        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
+            "unified-processor",
+            format!("{}/health", state.config.unified_processor_url),
+            5000,
+        ))
 }

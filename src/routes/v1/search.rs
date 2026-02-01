@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::error::Result;
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::{SearchRequest, SearchResponse, SearchResult, SearchResultSource, SearchStats, RelatedEntity};
-use crate::clients::enhanced_graph_client::{TemporalSearchData, Edge, Node};
+use crate::clients::relation_graph_client::{TemporalSearchData, Edge, Node};
 use super::AppState;
 
 /// Helper to check feature toggle
@@ -84,8 +84,8 @@ pub async fn hybrid_search(
     let use_enhanced = is_toggle_enabled(&state.config.feature_toggle_url, "useEnhancedGraph").await;
     
     if use_enhanced {
-        // Use new Enhanced Graph service
-        let response = state.enhanced_graph_client.search(&request.query, request.limit).await?;
+        // Use new Enhanced Graph service with temporal search
+        let response = state.enhanced_graph_client.search_simple(&request.query, request.limit).await?;
         
         if let Some(data) = response.data {
              return Ok(Json(map_enhanced_response(data)));
@@ -121,7 +121,7 @@ pub async fn vector_search(
     
     if use_enhanced {
         // Enhanced graph usually does hybrid, but we can use it
-        let response = state.enhanced_graph_client.search(&request.query, request.limit).await?;
+        let response = state.enhanced_graph_client.search_simple(&request.query, request.limit).await?;
         
         if let Some(data) = response.data {
              return Ok(Json(map_enhanced_response(data)));
@@ -150,7 +150,7 @@ pub async fn graph_search(
     
     if use_enhanced {
         // Enhanced graph is graph-first
-        let response = state.enhanced_graph_client.search(&request.query, request.limit).await?;
+        let response = state.enhanced_graph_client.search_simple(&request.query, request.limit).await?;
         
         if let Some(data) = response.data {
              return Ok(Json(map_enhanced_response(data)));

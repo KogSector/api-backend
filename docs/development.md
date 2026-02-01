@@ -197,6 +197,15 @@ Use VS Code with the `rust-analyzer` and `CodeLLDB` extensions for debugging. A 
 2. Add configuration to `src/config/mod.rs` and `.env.example`.
 3. Write unit tests and update documentation.
 
+**Available Service Clients:**
+- `AuthClient` - Authentication service integration
+- `DataConnectorClient` - Source integration and data ingestion
+- `RelationGraphClient` - Knowledge graph operations
+- `McpClient` - AI agent protocol communication
+- `UnifiedProcessorClient` - Hybrid document/code processing
+
+**Note:** `EnhancedGraphClient` is a deprecated type alias for `RelationGraphClient`. Use `RelationGraphClient` in new code for clarity.
+
 ## Code Style
 
 - `cargo fmt` for formatting

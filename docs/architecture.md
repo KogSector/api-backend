@@ -6,12 +6,43 @@ ConFuse is a **Knowledge Intelligence Platform** that enables AI agents to acces
 
 The API Backend serves as the central gateway (Port: 8088) that orchestrates all ConFuse microservices.
 
+### Connectivity Infrastructure
+
+The API Backend now integrates the **ConFuse Connectivity Infrastructure** (`confuse-connectivity`), a comprehensive shared library providing:
+
+- **Service Discovery**: Consul-based service registration and discovery with health checks
+- **Circuit Breakers**: Automatic failure detection and recovery to prevent cascading failures
+- **Distributed Caching**: Redis-based caching with cache-aside, write-through patterns
+- **Distributed Tracing**: OpenTelemetry integration with Jaeger for end-to-end request tracing
+- **Health Monitoring**: Comprehensive health check framework for dependencies
+- **Resilience Patterns**: Exponential backoff retry logic with configurable policies
+- **HTTP Client**: Type-safe service client with built-in resilience and tracing
+
+This replaces the previous `failsafe` circuit breaker library with a more comprehensive, production-ready solution designed specifically for the ConFuse platform's microservices architecture.
+
 ---
 
 ## Service Descriptions
 
 ### 1. API Backend (This Service)
 **Port: 8088** | **Language: Rust (Axum)**
+
+Central API gateway that orchestrates all ConFuse microservices. Provides:
+- RESTful API endpoints for external clients
+- Service-to-service communication via HTTP clients
+- Circuit breaker and retry logic for resilience
+- Distributed tracing and observability
+- Health monitoring and service discovery integration
+
+**Service Clients:**
+- `AuthClient` - Authentication service integration
+- `DataConnectorClient` - Source integration and data ingestion
+- `RelationGraphClient` - Knowledge graph operations with temporal search capabilities
+- `McpClient` - AI agent protocol communication
+- `UnifiedProcessorClient` - Hybrid document/code processing
+
+**Note:** The service client was renamed from `EnhancedGraphClient` to `RelationGraphClient` to align with the actual service name. The client provides access to both legacy relation graph operations and enhanced temporal search features via feature toggles.
+
 ### 9. Client Connector
 **Port: 8095** | **Language: Python**
 
@@ -140,7 +171,50 @@ AI Agent asks: "How does authentication work?"
 | PostgreSQL | User data, metadata, job queue | api-backend, data-connector, auth |
 | Neo4j | Knowledge graph relationships | relation-graph |
 | Zilliz/Milvus | Vector embeddings | relation-graph |
-| Redis | Caching, sessions, rate limiting | api-backend, auth |
+| Redis | Caching, sessions, rate limiting, circuit breaker state | api-backend, auth, connectivity |
+| Consul | Service discovery, health checks | All services via connectivity |
+
+---
+
+## Resilience Architecture
+
+The API Backend implements comprehensive resilience patterns through the connectivity infrastructure:
+
+```
+Request Flow with Resilience:
+         │
+         ▼
+┌─────────────────────┐
+│  Circuit Breaker    │ ◄─── Monitors failure rates
+│  (Per Service)      │      Opens on threshold
+└──────────┬──────────┘
+           │ If Closed/Half-Open
+           ▼
+┌─────────────────────┐
+│  Retry Logic        │ ◄─── Exponential backoff
+│  (Configurable)     │      Max 3 attempts
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  Service Client     │ ◄─── HTTP with timeout
+│  (Type-safe)        │      Distributed tracing
+└──────────┬──────────┘
+           │
+           ▼
+    Downstream Service
+```
+
+**Circuit Breaker States:**
+- **Closed**: Normal operation, requests flow through
+- **Open**: Service failing, requests rejected immediately (30s timeout)
+- **Half-Open**: Testing recovery, limited requests allowed (5 max)
+
+**Failure Handling:**
+- Automatic retry with exponential backoff (100ms → 200ms → 400ms)
+- Circuit breaker trips at 50% failure rate (minimum 10 calls)
+- Health checks every 10 seconds via Consul
+- Distributed tracing for debugging failures
 
 ---
 

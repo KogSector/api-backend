@@ -39,6 +39,9 @@ pub fn v1_router(state: AppState) -> Router {
     // Public routes (no auth required)
     let public_routes = Router::new()
         .route("/health", get(health::health_check))
+        .route("/health/detailed", get(health::health_check_detailed))
+        .route("/health/ready", get(health::readiness))
+        .route("/health/live", get(health::liveness))
         .route("/status", get(health::status_check))
         .route("/metrics", get(health::metrics));
     
