@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     librdkafka1 \
     libsasl2-2 \
+    dumb-init \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -58,9 +59,12 @@ ENV OTEL_SERVICE_NAME=api-backend
 # Expose port
 EXPOSE 8088
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+# Health check optimized for Azure Container Apps
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8088/health || exit 1
+
+# Use dumb-init as PID 1 for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
 
 # Run
 CMD ["api-backend"]
