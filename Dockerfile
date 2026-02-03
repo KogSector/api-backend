@@ -52,16 +52,16 @@ RUN chmod +x /usr/local/bin/api-backend
 USER confuse
 
 # Environment defaults
-ENV PORT=8088
+ENV PORT=8000
 ENV RUST_LOG=info,api_backend=debug
 ENV OTEL_SERVICE_NAME=api-backend
 
 # Expose port
-EXPOSE 8088
+EXPOSE 8000
 
 # Health check optimized for Azure Container Apps
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8088/health || exit 1
+    CMD curl -f http://localhost:8000/health || exit 1
 
 # Use dumb-init as PID 1 for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
