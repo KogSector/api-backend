@@ -43,9 +43,9 @@ impl Config {
         
         Ok(Self {
             port: env::var("PORT")
-                .unwrap_or_else(|_| "8088".to_string())
+                .unwrap_or_else(|_| "8000".to_string())
                 .parse()
-                .map_err(|_| ConfigError::InvalidValue("PORT".to_string()))?,
+                .unwrap_or(8000),
             
             database_url: env::var("DATABASE_URL")
                 .map_err(|_| ConfigError::MissingEnv("DATABASE_URL".to_string()))?,
