@@ -42,6 +42,7 @@ fn demo_user() -> User {
         name: Some("Demo User".to_string()),
         picture: None,
         roles: vec!["user".to_string()],
+        workspace_id: Some("demo-workspace-001".to_string()),
     }
 }
 
@@ -69,7 +70,14 @@ pub async fn auth_middleware(
         .get("X-API-Key")
         .and_then(|v| v.to_str().ok());
     
-    let user = if let Some(auth_value) = auth_header {
+    // Extract workspace ID from headers (optional - for multi-tenant context)
+    let workspace_id = request
+        .headers()
+        .get("X-Workspace-Id")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    
+    let mut user = if let Some(auth_value) = auth_header {
         // Bearer token authentication
         if let Some(token) = auth_value.strip_prefix("Bearer ") {
             auth_layer.auth_client.verify_token(token).await?
@@ -86,10 +94,16 @@ pub async fn auth_middleware(
             name: Some(api_key_info.name),
             picture: None,
             roles: api_key_info.scopes,
+            workspace_id: None,
         }
     } else {
         return Err(AppError::Unauthorized("No authentication provided".to_string()));
     };
+    
+    // Set workspace_id if provided in headers
+    if workspace_id.is_some() {
+        user.workspace_id = workspace_id;
+    }
     
     // Attach user to request extensions
     request.extensions_mut().insert(AuthenticatedUser(user));
