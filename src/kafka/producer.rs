@@ -27,7 +27,7 @@ pub enum ProducerError {
     MaxRetriesExceeded,
 }
 
-/// Configuration for the event producer
+/// Configuration for the event producer with Confluent Cloud support
 #[derive(Clone, Debug)]
 pub struct ProducerConfig {
     pub bootstrap_servers: String,
@@ -35,6 +35,10 @@ pub struct ProducerConfig {
     pub retries: u32,
     pub retry_backoff_ms: u64,
     pub request_timeout_ms: u64,
+    // Confluent Cloud SASL_SSL settings
+    pub security_protocol: String,
+    pub sasl_username: Option<String>,
+    pub sasl_password: Option<String>,
 }
 
 impl Default for ProducerConfig {
@@ -45,29 +49,61 @@ impl Default for ProducerConfig {
             retries: 5,
             retry_backoff_ms: 100,
             request_timeout_ms: 30000,
+            security_protocol: "PLAINTEXT".to_string(),
+            sasl_username: None,
+            sasl_password: None,
         }
     }
 }
 
 impl ProducerConfig {
     pub fn from_env() -> Self {
-        Self {
-            bootstrap_servers: std::env::var("KAFKA_BOOTSTRAP_SERVERS")
-                .unwrap_or_else(|_| "localhost:9092".to_string()),
-            client_id: std::env::var("KAFKA_CLIENT_ID")
-                .unwrap_or_else(|_| "api-backend".to_string()),
-            retries: std::env::var("KAFKA_RETRIES")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(5),
-            retry_backoff_ms: std::env::var("KAFKA_RETRY_BACKOFF_MS")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(100),
-            request_timeout_ms: std::env::var("KAFKA_REQUEST_TIMEOUT_MS")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(30000),
+        let environment = std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
+        
+        if environment == "production" {
+            Self {
+                bootstrap_servers: std::env::var("CONFLUENT_BOOTSTRAP_SERVERS")
+                    .expect("CONFLUENT_BOOTSTRAP_SERVERS must be set in production"),
+                client_id: std::env::var("KAFKA_CLIENT_ID")
+                    .unwrap_or_else(|_| "api-backend-prod".to_string()),
+                retries: std::env::var("KAFKA_RETRIES")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(5),
+                retry_backoff_ms: std::env::var("KAFKA_RETRY_BACKOFF_MS")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(100),
+                request_timeout_ms: std::env::var("KAFKA_REQUEST_TIMEOUT_MS")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(30000),
+                security_protocol: "SASL_SSL".to_string(),
+                sasl_username: std::env::var("CONFLUENT_API_KEY").ok(),
+                sasl_password: std::env::var("CONFLUENT_API_SECRET").ok(),
+            }
+        } else {
+            Self {
+                bootstrap_servers: std::env::var("KAFKA_BOOTSTRAP_SERVERS")
+                    .unwrap_or_else(|_| "localhost:9092".to_string()),
+                client_id: std::env::var("KAFKA_CLIENT_ID")
+                    .unwrap_or_else(|_| "api-backend".to_string()),
+                retries: std::env::var("KAFKA_RETRIES")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(5),
+                retry_backoff_ms: std::env::var("KAFKA_RETRY_BACKOFF_MS")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(100),
+                request_timeout_ms: std::env::var("KAFKA_REQUEST_TIMEOUT_MS")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(30000),
+                security_protocol: "PLAINTEXT".to_string(),
+                sasl_username: None,
+                sasl_password: None,
+            }
         }
     }
 }
@@ -146,15 +182,36 @@ pub struct EventProducer {
 }
 
 impl EventProducer {
-    /// Create a new event producer
+    /// Create a new event producer with optional SASL_SSL for Confluent Cloud
     pub fn new(config: ProducerConfig) -> Result<Self, ProducerError> {
-        let producer: FutureProducer = ClientConfig::new()
+        let mut client_config = ClientConfig::new();
+        
+        // Base configuration
+        client_config
             .set("bootstrap.servers", &config.bootstrap_servers)
             .set("client.id", &config.client_id)
             .set("compression.type", "gzip")
             .set("acks", "all")
             .set("enable.idempotence", "true")
-            .set("request.timeout.ms", config.request_timeout_ms.to_string())
+            .set("request.timeout.ms", config.request_timeout_ms.to_string());
+        
+        // Add SASL_SSL configuration for Confluent Cloud
+        if config.security_protocol == "SASL_SSL" {
+            client_config
+                .set("security.protocol", "SASL_SSL")
+                .set("sasl.mechanism", "PLAIN");
+            
+            if let Some(ref username) = config.sasl_username {
+                client_config.set("sasl.username", username);
+            }
+            if let Some(ref password) = config.sasl_password {
+                client_config.set("sasl.password", password);
+            }
+            
+            info!("Using SASL_SSL for Confluent Cloud connection");
+        }
+        
+        let producer: FutureProducer = client_config
             .create()
             .map_err(|e| ProducerError::Kafka(e.to_string()))?;
 
