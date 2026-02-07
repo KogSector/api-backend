@@ -44,9 +44,10 @@ podman run -p 8088:8088 --env-file .env confuse/api-backend:latest
 |---------|------|---------|
 | auth-middleware | 3010 | JWT/OAuth authentication |
 | data-connector | 8080 | Source management & sync |
+| unified-processor | 8090 | Document & code processing |
 | relation-graph | 3003 | Knowledge graph & search |
 | mcp-server | 3004 | AI agent tools |
-| embeddings | 3001 | Vector generation |
+| embeddings-service | 3011 | Vector generation |
 | feature-toggle | 3099 | Feature flags |
 
 ## Configuration
