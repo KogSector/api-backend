@@ -1,16 +1,16 @@
 # =============================================================================
 # ConFuse API Backend - Multi-stage Dockerfile
 # =============================================================================
-# Build: podman build -t confuse/api-backend:latest .
-# Run:   podman run -p 8088:8088 --env-file .env confuse/api-backend:latest
+# Build from workspace root: podman build -f api-backend/Dockerfile -t confuse/api-backend:latest .
+# Run: podman run -p 8088:8088 --env-file .env confuse/api-backend:latest
 # =============================================================================
 
 # Stage 1: Build - Use latest stable Rust
 FROM rust:1.92.0-slim AS builder
 
-WORKDIR /app
+WORKDIR /workspace
 
-# Install build dependencies for OpenSSL
+# Install build dependencies for OpenSSL and Kafka
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
@@ -20,8 +20,13 @@ RUN apt-get update && apt-get install -y \
     librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy all source code (uses .dockerignore)
-COPY . .
+# Copy shared middleware library first (required dependency)
+COPY shared-middleware-confuse ./shared-middleware-confuse
+
+# Copy api-backend source
+COPY api-backend ./api-backend
+
+WORKDIR /workspace/api-backend
 
 # Build the application
 RUN cargo build --release
@@ -45,7 +50,7 @@ RUN useradd -m -u 1000 confuse
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /app/target/release/api-backend /usr/local/bin/api-backend
+COPY --from=builder /workspace/api-backend/target/release/api-backend /usr/local/bin/api-backend
 RUN chmod +x /usr/local/bin/api-backend
 
 # Switch to non-root user
