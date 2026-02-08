@@ -1,10 +1,14 @@
-target/
-.git/
-.gitignore
-.env
-.env.*
-*.md
-docs/
-tests/
-build_output.txt
-Cargo.lock
+# Rust Service .dockerignore
+# Ignore everything by default
+**
+
+# Allow build context essentials
+!api-backend/
+!shared/
+!Cargo.toml
+!Cargo.lock
+
+# Specific ignores within allowed directories
+api-backend/target
+api-backend/.env
+shared/target

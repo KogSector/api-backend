@@ -1,56 +1,7 @@
-# =============================================================================
-# ConFuse API Backend - .gitignore
-# =============================================================================
-
-# Rust / Cargo
-/target/
+# Rust Service .gitignore
+/target
 **/*.rs.bk
-*.pdb
 Cargo.lock
-
-# Build artifacts
-*.exe
-*.dll
-*.so
-*.dylib
-
-# IDE / Editors
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Environment
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
-
-# Logs
-*.log
-logs/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-*.temp
-
-# Test artifacts
-coverage/
-*.profraw
-*.profdata
-
-# Build output
-build_output.txt
-
-# OS files
-Thumbs.db
-Desktop.ini

@@ -6,8 +6,8 @@ authors = ["ConFuse Team"]
 description = "Central API Gateway for the ConFuse Knowledge Intelligence Platform"
 
 [dependencies]
-# Shared connectivity infrastructure
-confuse-connectivity = { path = "../shared-middleware-confuse/connectivity" }
+# Unified shared library
+confuse-common = { path = "../shared-middleware/rust/confuse-common", features = ["axum-support"] }
 
 # Web framework
 axum = { version = "0.7", features = ["macros"] }
@@ -43,11 +43,6 @@ tracing-appender = "0.2"
 
 # Config
 dotenvy = "0.15"
-
-# =============================================================================
-# Event-Driven Architecture (Kafka)
-# =============================================================================
-rdkafka = { version = "0.36", features = ["cmake-build", "tokio"] }
 
 # =============================================================================
 # Observability (OpenTelemetry)

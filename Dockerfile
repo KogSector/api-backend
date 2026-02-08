@@ -21,7 +21,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy shared middleware library first (required dependency)
-COPY shared-middleware-confuse ./shared-middleware-confuse
+# Copy shared middleware library (new dependency)
+COPY shared-middleware ./shared-middleware
+# Copy unified shared library (new dependency)
+COPY shared-middleware ./shared-middleware
 
 # Copy api-backend source
 COPY api-backend ./api-backend

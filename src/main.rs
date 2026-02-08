@@ -14,7 +14,7 @@ use api_backend::{Config, AppError};
 use api_backend::clients::{AuthClient, DataConnectorClient, RelationGraphClient, McpClient, UnifiedProcessorClient};
 use api_backend::middleware::auth::AuthLayer;
 use api_backend::routes::v1::{v1_router, AppState};
-use api_backend::kafka::{EventProducer, producer::ProducerConfig};
+use confuse_events::{config::KafkaConfig, producer::EventProducer};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -67,13 +67,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(true);
     
     let event_producer = if kafka_enabled {
-        match EventProducer::new(ProducerConfig::from_env()) {
-            Ok(producer) => {
-                tracing::info!("✅ Kafka event producer initialized");
-                Some(Arc::new(producer))
-            }
+        match KafkaConfig::from_env() {
+            Ok(kafka_config) => {
+                match EventProducer::new(kafka_config) {
+                    Ok(producer) => {
+                        tracing::info!("✅ Kafka event producer initialized");
+                        Some(Arc::new(producer))
+                    },
+                    Err(e) => {
+                        tracing::warn!("⚠️  Kafka producer creation failed: {}", e);
+                        None
+                    }
+                }
+            },
             Err(e) => {
-                tracing::warn!("⚠️  Kafka unavailable, falling back to HTTP: {}", e);
+                tracing::warn!("⚠️  Kafka config invalid, disabled: {}", e);
                 None
             }
         }
