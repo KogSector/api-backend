@@ -56,26 +56,26 @@ impl Config {
             jwt_secret: env::var("JWT_SECRET")
                 .map_err(|_| ConfigError::MissingEnv("JWT_SECRET".to_string()))?,
             
-            auth_middleware_url: env::var("AUTH_MIDDLEWARE_URL")
-                .unwrap_or_else(|_| "http://localhost:3010".to_string()),
+            auth_middleware_url: env::var("AUTH_SERVICE_URL")
+                .map_err(|_| ConfigError::MissingEnv("AUTH_SERVICE_URL".to_string()))?,
             
-            data_connector_url: env::var("DATA_CONNECTOR_URL")
-                .unwrap_or_else(|_| "http://localhost:8080".to_string()),
+            data_connector_url: env::var("DATA_SERVICE_URL")
+                .map_err(|_| ConfigError::MissingEnv("DATA_SERVICE_URL".to_string()))?,
             
-            relation_graph_url: env::var("RELATION_GRAPH_URL")
-                .unwrap_or_else(|_| "http://localhost:3003".to_string()),
+            relation_graph_url: env::var("RELATION_GRAPH_SERVICE_URL")
+                .map_err(|_| ConfigError::MissingEnv("RELATION_GRAPH_SERVICE_URL".to_string()))?,
             
-            mcp_server_url: env::var("MCP_SERVER_URL")
-                .unwrap_or_else(|_| "http://localhost:3004".to_string()),
+            mcp_server_url: env::var("MCP_SERVICE_URL")
+                .map_err(|_| ConfigError::MissingEnv("MCP_SERVICE_URL".to_string()))?,
             
             feature_toggle_url: env::var("FEATURE_TOGGLE_SERVICE_URL")
-                .unwrap_or_else(|_| "http://localhost:3099".to_string()),
+                .map_err(|_| ConfigError::MissingEnv("FEATURE_TOGGLE_SERVICE_URL".to_string()))?,
             
-            unified_processor_url: env::var("UNIFIED_PROCESSOR_URL")
-                .unwrap_or_else(|_| "http://localhost:8090".to_string()),
+            unified_processor_url: env::var("UNIFIED_PROCESSOR_SERVICE_URL")
+                .map_err(|_| ConfigError::MissingEnv("UNIFIED_PROCESSOR_SERVICE_URL".to_string()))?,
                 
             enhanced_graph_url: env::var("ENHANCED_GRAPH_URL")
-                .unwrap_or_else(|_| "http://localhost:3005".to_string()),
+                .map_err(|_| ConfigError::MissingEnv("ENHANCED_GRAPH_URL".to_string()))?,
             
             cors_origins: env::var("CORS_ORIGINS")
                 .unwrap_or_else(|_| "http://localhost:3000".to_string())
