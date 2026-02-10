@@ -52,14 +52,6 @@ async fn create_health_checker(state: &AppState) -> HealthChecker {
                 Ok(())
             },
         ))
-        // Add cache check
-        .add_check(confuse_connectivity::health::checks::CacheCheck::new(
-            "redis",
-            || {
-                // Placeholder - would check actual Redis connection
-                Ok(())
-            },
-        ))
         // Add downstream service checks
         .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
             "auth-middleware",

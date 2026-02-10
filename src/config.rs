@@ -12,7 +12,6 @@ pub struct Config {
     
     // Database
     pub database_url: String,
-    pub redis_url: String,
     
     // JWT
     pub jwt_secret: String,
@@ -49,9 +48,6 @@ impl Config {
             
             database_url: env::var("DATABASE_URL")
                 .map_err(|_| ConfigError::MissingEnv("DATABASE_URL".to_string()))?,
-            
-            redis_url: env::var("REDIS_URL")
-                .map_err(|_| ConfigError::MissingEnv("REDIS_URL".to_string()))?,
             
             jwt_secret: env::var("JWT_SECRET")
                 .map_err(|_| ConfigError::MissingEnv("JWT_SECRET".to_string()))?,

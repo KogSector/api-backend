@@ -1,6 +1,6 @@
 //! Rate limiting middleware
 //!
-//! Redis-backed sliding window rate limiting
+//! In-memory sliding window rate limiting using DashMap
 
 use axum::{
     extract::{Request, State},
@@ -8,14 +8,14 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use redis::AsyncCommands;
+use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Rate limit configuration
 #[derive(Clone)]
 pub struct RateLimitConfig {
-    pub redis_client: Arc<redis::Client>,
+    pub counters: Arc<DashMap<String, Vec<u64>>>,
     pub default_limit: u32,
     pub search_limit: u32,
     pub sources_limit: u32,
@@ -25,6 +25,18 @@ pub struct RateLimitConfig {
 }
 
 impl RateLimitConfig {
+    pub fn new(default_limit: u32, search_limit: u32, sources_limit: u32, sync_limit: u32, window_secs: u64, skip_rate_limiting: bool) -> Self {
+        Self {
+            counters: Arc::new(DashMap::new()),
+            default_limit,
+            search_limit,
+            sources_limit,
+            sync_limit,
+            window_secs,
+            skip_rate_limiting,
+        }
+    }
+
     /// Get limit for an endpoint path
     pub fn get_limit_for_path(&self, path: &str) -> u32 {
         if path.contains("/search") {
@@ -63,7 +75,7 @@ pub async fn rate_limit_middleware(
     let limit = config.get_limit_for_path(&path);
     
     // Check rate limit
-    match check_rate_limit(&config, &client_id, &path, limit).await {
+    match check_rate_limit(&config, &client_id, &path, limit) {
         Ok(info) => {
             let mut response = next.run(request).await;
             
@@ -128,8 +140,8 @@ fn get_client_id(request: &Request) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
-/// Check rate limit using Redis sliding window
-async fn check_rate_limit(
+/// Check rate limit using in-memory sliding window
+fn check_rate_limit(
     config: &RateLimitConfig,
     client_id: &str,
     path: &str,
@@ -143,32 +155,15 @@ async fn check_rate_limit(
     let window_start = now - config.window_secs;
     let key = format!("ratelimit:{}:{}", client_id, path.replace('/', "_"));
     
-    let mut conn = match config.redis_client.get_multiplexed_async_connection().await {
-        Ok(c) => c,
-        Err(_) => {
-            // If Redis is unavailable, allow the request
-            return Ok(RateLimitInfo {
-                limit,
-                remaining: limit,
-                reset: now + config.window_secs,
-            });
-        }
-    };
+    let mut entry = config.counters.entry(key).or_insert_with(Vec::new);
     
-    // Remove old entries and add new one
-    let _: Result<(), _> = redis::pipe()
-        .atomic()
-        .zrembyscore(&key, 0i64, window_start as i64)
-        .zadd(&key, now.to_string(), now as f64)
-        .expire(&key, config.window_secs as i64)
-        .query_async(&mut conn)
-        .await;
+    // Remove old entries outside the window
+    entry.retain(|&ts| ts > window_start);
     
-    // Count requests in window
-    let count: u32 = conn
-        .zcount(&key, window_start as f64, now as f64)
-        .await
-        .unwrap_or(0);
+    // Add current request timestamp
+    entry.push(now);
+    
+    let count = entry.len() as u32;
     
     if count > limit {
         Err(())

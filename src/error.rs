@@ -35,9 +35,6 @@ pub enum AppError {
     
     #[error("Database error: {0}")]
     Database(String),
-    
-    #[error("Redis error: {0}")]
-    Redis(String),
 }
 
 /// Error response format matching API reference
@@ -65,7 +62,6 @@ impl IntoResponse for AppError {
             AppError::ServiceUnavailable(msg) => (StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", msg.clone()),
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg.clone()),
             AppError::Database(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "DATABASE_ERROR", msg.clone()),
-            AppError::Redis(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "CACHE_ERROR", msg.clone()),
         };
         
         let error_response = ErrorResponse {
@@ -87,10 +83,6 @@ impl From<sqlx::Error> for AppError {
     }
 }
 
-impl From<redis::RedisError> for AppError {
-    fn from(err: redis::RedisError) -> Self {
-        AppError::Redis(err.to_string())
-    }
 }
 
 impl From<reqwest::Error> for AppError {
