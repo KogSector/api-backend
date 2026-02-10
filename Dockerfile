@@ -20,10 +20,7 @@ RUN apt-get update && apt-get install -y \
     librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy shared middleware library first (required dependency)
-# Copy shared middleware library (new dependency)
-COPY shared-middleware ./shared-middleware
-# Copy unified shared library (new dependency)
+# Copy shared middleware library
 COPY shared-middleware ./shared-middleware
 
 # Copy api-backend source
