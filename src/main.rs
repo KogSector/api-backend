@@ -14,7 +14,7 @@ use api_backend::{Config, AppError};
 use api_backend::clients::{AuthClient, DataConnectorClient, RelationGraphClient, McpClient, UnifiedProcessorClient};
 use api_backend::middleware::auth::AuthLayer;
 use api_backend::routes::v1::{v1_router, AppState};
-use confuse_events::{config::KafkaConfig, producer::EventProducer};
+use confuse_common::events::{config::KafkaConfig, producer::EventProducer};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

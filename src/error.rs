@@ -83,7 +83,7 @@ impl From<sqlx::Error> for AppError {
     }
 }
 
-}
+
 
 impl From<reqwest::Error> for AppError {
     fn from(err: reqwest::Error) -> Self {

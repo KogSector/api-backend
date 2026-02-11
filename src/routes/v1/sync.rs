@@ -9,11 +9,11 @@ use axum::{
 
 use crate::error::{AppError, Result};
 use crate::middleware::auth::AuthenticatedUser;
-use confuse_events::events::{
+use confuse_common::events::{
     SourceSyncRequestedEvent, 
     SourceType as EventSourceType, 
 };
-use confuse_events::topics;
+use confuse_common::events::topics;
 // Note: SyncRequestResponse is likely local to api-backend or needs to be migrated. 
 // Assuming it's local or we map Event -> Response manually.
 // Checking imports: src/kafka/events imported SyncRequestResponse.
@@ -101,7 +101,7 @@ pub async fn trigger_sync(
         ).with_user(user.0.id.clone());
         
         // Changed: parameter order (event first) and removed key (None)
-        producer.publish_to_topic(&event, topics::SOURCE_SYNC_REQUESTED).await
+        producer.publish_to_topic(&event, topics::Topics::SOURCE_SYNC_REQUESTED).await
             .map_err(|e| AppError::Internal(format!("Event publish failed: {}", e)))?;
         
         tracing::info!(
@@ -120,10 +120,10 @@ pub async fn trigger_sync(
         .await?;
     
     Ok(Json(SyncRequestResponse {
-        correlation_id: job.job_id.clone(),
+        correlation_id: Some(job.job_id.clone()),
         event_id: job.job_id,
         status: "sync_started".to_string(),
-        timestamp: chrono::Utc::now(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
     }))
 }
 

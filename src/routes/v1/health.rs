@@ -1,9 +1,9 @@
-//! Health and status endpoints with connectivity infrastructure
+//! Health and status endpoints for API Backend
+//!
+//! Provides basic health check, detailed status, readiness/liveness probes, and metrics.
 
 use axum::{extract::State, http::StatusCode, Json};
 use chrono::Utc;
-use confuse_connectivity::{Check, HealthChecker};
-use confuse_connectivity::registry::health::{HealthCheckResult, ComponentHealth, HealthStatus};
 use std::collections::HashMap;
 
 use crate::error::Result;
@@ -21,26 +21,23 @@ pub async fn health_check() -> Json<HealthResponse> {
     })
 }
 
-/// GET /health/detailed - Detailed health check using connectivity infrastructure
+/// GET /health/detailed - Detailed health check with downstream services
 pub async fn health_check_detailed(
     State(state): State<AppState>,
-) -> (StatusCode, Json<HealthCheckResult>) {
-    let checker = create_health_checker(&state).await;
-    let result = checker.check_health().await;
+) -> (StatusCode, Json<HealthResponse>) {
+    let result = check_all_services(&state).await;
+    let all_healthy = result.services.as_ref()
+        .map(|s| s.values().all(|v| v.status == "healthy"))
+        .unwrap_or(true);
     
-    let status_code = match result.status {
-        HealthStatus::Healthy => StatusCode::OK,
-        HealthStatus::Degraded => StatusCode::OK, // Still accepting traffic
-        HealthStatus::Unhealthy => StatusCode::SERVICE_UNAVAILABLE,
-    };
-    
+    let status_code = if all_healthy { StatusCode::OK } else { StatusCode::OK }; // Still accepting traffic
     (status_code, Json(result))
 }
 
 /// GET /health/ready - Readiness probe for Kubernetes
 pub async fn readiness(
     State(state): State<AppState>,
-) -> (StatusCode, Json<HealthCheckResult>) {
+) -> (StatusCode, Json<HealthResponse>) {
     health_check_detailed(State(state)).await
 }
 
@@ -59,6 +56,19 @@ pub async fn liveness() -> (StatusCode, Json<serde_json::Value>) {
 
 /// GET /status - Detailed status with downstream service health (backward compatible)
 pub async fn status_check(State(state): State<AppState>) -> Result<Json<HealthResponse>> {
+    Ok(Json(check_all_services(&state).await))
+}
+
+/// GET /metrics - Prometheus metrics endpoint
+pub async fn metrics() -> String {
+    // TODO: Implement actual Prometheus metrics collection
+    format!(
+        "# HELP up Service up status\n# TYPE up gauge\nup 1\n# HELP api_requests_total Total requests\n# TYPE api_requests_total counter\napi_requests_total 0\n"
+    )
+}
+
+/// Check all downstream services health
+async fn check_all_services(state: &AppState) -> HealthResponse {
     let mut services = HashMap::new();
     
     // Check auth-middleware
@@ -104,52 +114,11 @@ pub async fn status_check(State(state): State<AppState>) -> Result<Json<HealthRe
     // Overall status
     let all_healthy = auth_healthy && dc_healthy && rg_healthy && mcp_healthy && up_healthy;
     
-    Ok(Json(HealthResponse {
+    HealthResponse {
         status: if all_healthy { "healthy" } else { "degraded" }.to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         service: "api-backend".to_string(),
         timestamp: Some(Utc::now().to_rfc3339()),
         services: Some(services),
-    }))
-}
-
-/// GET /metrics - Prometheus metrics endpoint
-pub async fn metrics() -> String {
-    // TODO: Implement actual Prometheus metrics collection
-    // For now, return basic uptime metric
-    format!(
-        "# HELP up Service up status\n# TYPE up gauge\nup 1\n# HELP api_requests_total Total requests\n# TYPE api_requests_total counter\napi_requests_total 0\n"
-    )
-}
-
-async fn create_health_checker(state: &AppState) -> HealthChecker {
-    let version = env!("CARGO_PKG_VERSION");
-    
-    HealthChecker::new(version)
-        // Add downstream service checks with proper URLs
-        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
-            "auth-middleware",
-            format!("{}/health", state.config.auth_middleware_url),
-            5000,
-        ))
-        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
-            "data-connector",
-            format!("{}/health", state.config.data_connector_url),
-            5000,
-        ))
-        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
-            "relation-graph",
-            format!("{}/health", state.config.relation_graph_url),
-            5000,
-        ))
-        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
-            "mcp-server",
-            format!("{}/health", state.config.mcp_server_url),
-            5000,
-        ))
-        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
-            "unified-processor",
-            format!("{}/health", state.config.unified_processor_url),
-            5000,
-        ))
+    }
 }

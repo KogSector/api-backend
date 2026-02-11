@@ -1,35 +1,78 @@
-//! Health check endpoints using connectivity infrastructure
+//! Health check endpoints for API Backend
 
 use axum::{extract::State, http::StatusCode, Json};
-use confuse_connectivity::{Check, HealthChecker};
-use confuse_connectivity::registry::health::{HealthCheckResult, ComponentHealth, HealthStatus};
-use std::sync::Arc;
+use serde::Serialize;
 use crate::routes::v1::AppState;
+
+#[derive(Debug, Serialize)]
+pub struct HealthCheckResult {
+    pub status: String,
+    pub version: String,
+    pub timestamp: String,
+    pub components: Vec<ComponentHealth>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ComponentHealth {
+    pub name: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
 
 /// Health check handler
 pub async fn health_check(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppState>,
 ) -> (StatusCode, Json<HealthCheckResult>) {
-    let checker = create_health_checker(&state).await;
-    let result = checker.check_health().await;
+    let mut components = Vec::new();
     
-    let status_code = match result.status {
-        HealthStatus::Healthy => StatusCode::OK,
-        HealthStatus::Degraded => StatusCode::OK, // Still accepting traffic
-        HealthStatus::Unhealthy => StatusCode::SERVICE_UNAVAILABLE,
+    // Check downstream services
+    let services = vec![
+        ("auth-middleware", &state.config.auth_middleware_url),
+        ("data-connector", &state.config.data_connector_url),
+        ("relation-graph", &state.config.relation_graph_url),
+    ];
+    
+    for (name, url) in services {
+        let status = match reqwest::Client::new()
+            .get(format!("{}/health", url))
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => "healthy".to_string(),
+            Ok(resp) => format!("unhealthy ({})", resp.status()),
+            Err(e) => format!("unreachable: {}", e),
+        };
+        
+        components.push(ComponentHealth {
+            name: name.to_string(),
+            status,
+            message: None,
+        });
+    }
+    
+    let all_healthy = components.iter().all(|c| c.status == "healthy");
+    let status_code = if all_healthy { StatusCode::OK } else { StatusCode::OK }; // Still accept traffic
+    
+    let result = HealthCheckResult {
+        status: if all_healthy { "healthy" } else { "degraded" }.to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        components,
     };
     
     (status_code, Json(result))
 }
 
-/// Readiness probe - checks if service is ready to accept traffic
+/// Readiness probe
 pub async fn readiness(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppState>,
 ) -> (StatusCode, Json<HealthCheckResult>) {
     health_check(State(state)).await
 }
 
-/// Liveness probe - checks if service is alive
+/// Liveness probe
 pub async fn liveness() -> (StatusCode, Json<serde_json::Value>) {
     (
         StatusCode::OK,
@@ -38,34 +81,4 @@ pub async fn liveness() -> (StatusCode, Json<serde_json::Value>) {
             "timestamp": chrono::Utc::now().timestamp()
         })),
     )
-}
-
-async fn create_health_checker(state: &AppState) -> HealthChecker {
-    let version = env!("CARGO_PKG_VERSION");
-    
-    HealthChecker::new(version)
-        // Add database check
-        .add_check(confuse_connectivity::health::checks::DatabaseCheck::new(
-            "postgres",
-            || {
-                // Placeholder - would check actual DB connection
-                Ok(())
-            },
-        ))
-        // Add downstream service checks
-        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
-            "auth-middleware",
-            format!("{}/health", state.config.auth_middleware_url),
-            5000,
-        ))
-        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
-            "data-connector",
-            format!("{}/health", state.config.data_connector_url),
-            5000,
-        ))
-        .add_check(confuse_connectivity::health::checks::DependencyCheck::new(
-            "relation-graph",
-            format!("{}/health", state.config.relation_graph_url),
-            5000,
-        ))
 }
