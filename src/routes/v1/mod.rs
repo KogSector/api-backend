@@ -37,6 +37,8 @@ pub struct AppState {
     pub circuit_breaker: Arc<crate::middleware::CircuitBreakerRegistry>,
     /// Response cache for auth/data responses
     pub response_cache: Arc<crate::middleware::ResponseCache>,
+    /// gRPC clients (optional based on GRPC_ENABLED)
+    pub grpc_clients: Option<crate::clients::GrpcClients>,
 }
 
 /// Create the V1 router
@@ -117,12 +119,14 @@ pub fn v1_router(state: AppState) -> Router {
     
     // Compliance / Governance routes
     let compliance_routes = Router::new()
-        .route("/api/compliance/dashboard", get(compliance::compliance_dashboard))
-        .route("/api/compliance/gdpr/export", post(compliance::gdpr_data_export))
-        .route("/api/compliance/gdpr/delete", post(compliance::gdpr_data_deletion));
+        .route("/compliance/dashboard", get(compliance::compliance_dashboard))
+        .route("/compliance/audit-logs", get(compliance::audit_logs))
+        .route("/compliance/gdpr/export", post(compliance::gdpr_data_export))
+        .route("/compliance/gdpr/delete", post(compliance::gdpr_data_deletion));
     
     // Apply auth middleware to protected routes
     let protected_routes = protected_routes
+        .merge(compliance_routes)
         .layer(axum::middleware::from_fn_with_state(
             state.auth_layer.clone(),
             auth_middleware,
@@ -142,7 +146,6 @@ pub fn v1_router(state: AppState) -> Router {
         .merge(repository_routes)
         .merge(document_routes)
         .merge(agent_routes)
-        .merge(compliance_routes)
         .merge(webhook_routes)
         .with_state(state)
 }

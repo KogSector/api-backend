@@ -55,5 +55,10 @@ tracing-opentelemetry = "0.23"
 # Async utilities
 futures = "0.3"
 
+# gRPC
+tonic = "0.10"
+prost = "0.12"
+tonic-build = "0.10"
+
 [dev-dependencies]
 tokio-test = "0.4"

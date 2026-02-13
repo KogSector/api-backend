@@ -6,12 +6,14 @@ pub mod data_connector_client;
 pub mod relation_graph_client;
 pub mod mcp_client;
 pub mod unified_processor_client;
+pub mod grpc; // New gRPC module
 
 pub use auth_client::AuthClient;
 pub use data_connector_client::DataConnectorClient;
 pub use relation_graph_client::RelationGraphClient;
 pub use mcp_client::McpClient;
 pub use unified_processor_client::UnifiedProcessorClient;
+pub use grpc::GrpcClients;
 
 // Alias for backward compatibility
 pub type EnhancedGraphClient = RelationGraphClient;
