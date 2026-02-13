@@ -15,3 +15,4 @@ pub mod kafka;
 pub use config::Config;
 pub use error::{AppError, Result};
 pub use kafka::{EventProducer, SourceSyncRequestedEvent};
+pub use middleware::{CircuitBreakerRegistry, CircuitBreakerConfig, CircuitState, ResponseCache, CacheConfig, ZeroTrustLayer};

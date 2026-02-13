@@ -12,6 +12,7 @@ pub mod repositories;
 pub mod documents;
 pub mod agents;
 pub mod processing;
+pub mod compliance;
 
 use axum::{Router, routing::{get, post, delete, put}};
 use std::sync::Arc;
@@ -32,6 +33,10 @@ pub struct AppState {
     pub auth_layer: AuthLayer,
     /// Kafka event producer for event-driven operations (optional for graceful fallback)
     pub event_producer: Option<Arc<confuse_common::events::producer::EventProducer>>,
+    /// Circuit breaker registry for downstream service calls
+    pub circuit_breaker: Arc<crate::middleware::CircuitBreakerRegistry>,
+    /// Response cache for auth/data responses
+    pub response_cache: Arc<crate::middleware::ResponseCache>,
 }
 
 /// Create the V1 router
@@ -110,6 +115,12 @@ pub fn v1_router(state: AppState) -> Router {
         .route("/api/agents/:id/invoke", post(agents::invoke_agent))
         .route("/api/agents/:id/context", get(agents::get_agent_context));
     
+    // Compliance / Governance routes
+    let compliance_routes = Router::new()
+        .route("/api/compliance/dashboard", get(compliance::compliance_dashboard))
+        .route("/api/compliance/gdpr/export", post(compliance::gdpr_data_export))
+        .route("/api/compliance/gdpr/delete", post(compliance::gdpr_data_deletion));
+    
     // Apply auth middleware to protected routes
     let protected_routes = protected_routes
         .layer(axum::middleware::from_fn_with_state(
@@ -131,6 +142,7 @@ pub fn v1_router(state: AppState) -> Router {
         .merge(repository_routes)
         .merge(document_routes)
         .merge(agent_routes)
+        .merge(compliance_routes)
         .merge(webhook_routes)
         .with_state(state)
 }

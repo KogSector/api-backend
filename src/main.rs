@@ -13,6 +13,10 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use api_backend::{Config, AppError};
 use api_backend::clients::{AuthClient, DataConnectorClient, RelationGraphClient, McpClient, UnifiedProcessorClient};
 use api_backend::middleware::auth::AuthLayer;
+use api_backend::middleware::circuit_breaker::{CircuitBreakerRegistry, CircuitBreakerConfig};
+use api_backend::middleware::cache::{ResponseCache, CacheConfig};
+use api_backend::middleware::security_headers::security_headers_middleware;
+use api_backend::middleware::zero_trust::zero_trust_middleware;
 use api_backend::routes::v1::{v1_router, AppState};
 use confuse_common::events::{config::KafkaConfig, producer::EventProducer};
 
@@ -103,6 +107,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create auth layer
     let auth_layer = AuthLayer::new(auth_client.clone(), auth_bypass_enabled);
     
+    // Initialize circuit breaker registry
+    let circuit_breaker = Arc::new(CircuitBreakerRegistry::new(CircuitBreakerConfig::default()));
+    tracing::info!("Circuit breaker registry initialized");
+    
+    // Initialize response cache
+    let response_cache = Arc::new(ResponseCache::new(CacheConfig::default()));
+    tracing::info!("Response cache initialized");
+    
     // Create application state
     let state = AppState {
         config: config.clone(),
@@ -114,6 +126,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         enhanced_graph_client: Arc::new(enhanced_graph_client),
         auth_layer,
         event_producer,
+        circuit_breaker,
+        response_cache,
     };
     
     // Build CORS layer
@@ -124,6 +138,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Build router
     let app = v1_router(state)
+        .layer(axum::middleware::from_fn(zero_trust_middleware))
+        .layer(axum::middleware::from_fn(security_headers_middleware))
         .layer(TraceLayer::new_for_http())
         .layer(cors);
     
