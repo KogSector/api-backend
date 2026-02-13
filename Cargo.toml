@@ -7,7 +7,7 @@ description = "Central API Gateway for the ConFuse Knowledge Intelligence Platfo
 
 [dependencies]
 # Unified shared library
-confuse-common = { path = "../shared-middleware/rust/confuse-common", features = ["axum-support"] }
+confuse-common = { path = "../shared-middleware", features = ["axum-support"] }
 
 # Web framework
 axum = { version = "0.7", features = ["macros"] }
