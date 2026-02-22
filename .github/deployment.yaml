@@ -1,54 +1,7 @@
 # =============================================================================
 # API Backend - Kubernetes Deployment
-# Covers ALL .env variables via ConfigMap (non-sensitive) + Secret (sensitive)
+# Uses dynamically generated Secret from .env file via CI/CD
 # =============================================================================
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: api-backend-config
-  namespace: confuse-platform
-data:
-  SERVICE_NAME: "api-backend"
-  PORT: "8000"
-  GRPC_ENABLED: "false"
-  ENVIRONMENT: "production"
-  # Kafka
-  KAFKA_ENABLED: "true"
-  KAFKA_CLIENT_ID: "api-backend"
-  # CORS
-  CORS_ORIGINS: "https://confuse.platform.example.com"
-  # Rate Limiting
-  RATE_LIMIT_DEFAULT: "100"
-  RATE_LIMIT_SEARCH: "30"
-  RATE_LIMIT_SOURCES: "50"
-  RATE_LIMIT_SYNC: "10"
-  # Downstream Service URLs (internal cluster DNS)
-  DATA_SERVICE_URL: "http://data-connector:8080"
-  UNIFIED_PROCESSOR_SERVICE_URL: "http://unified-processor:8090"
-  RELATION_GRAPH_SERVICE_URL: "http://relation-graph:3003"
-  MCP_SERVICE_URL: "http://mcp-server:3004"
-  FEATURE_TOGGLE_SERVICE_URL: "http://feature-toggle:3099"
-  AUTH_SERVICE_URL: "http://auth-middleware:3010"
-  AUTH_BYPASS_ENABLED: "false"
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: api-backend-secrets
-  namespace: confuse-platform
-type: Opaque
-stringData:
-  # Database (REQUIRED)
-  DATABASE_URL: "CHANGEME_postgresql://user:pass@host:5432/confuse_api?sslmode=require"
-  # Auth
-  JWT_SECRET: "CHANGEME_JWT_SECRET_MIN_32_CHARS"
-  # Confluent Cloud
-  CONFLUENT_BOOTSTRAP_SERVERS: "CHANGEME_CONFLUENT_BOOTSTRAP_SERVERS"
-  CONFLUENT_API_KEY: "CHANGEME_CONFLUENT_API_KEY"
-  CONFLUENT_API_SECRET: "CHANGEME_CONFLUENT_API_SECRET"
 
 ---
 apiVersion: apps/v1
@@ -80,8 +33,6 @@ spec:
         - containerPort: 8000
           name: http
         envFrom:
-        - configMapRef:
-            name: api-backend-config
         - secretRef:
             name: api-backend-secrets
         resources:
