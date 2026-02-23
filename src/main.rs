@@ -115,27 +115,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let response_cache = Arc::new(ResponseCache::new(CacheConfig::default()));
     tracing::info!("Response cache initialized");
 
-    // Initialize gRPC clients (optional)
-    let grpc_clients = if std::env::var("GRPC_ENABLED").unwrap_or_else(|_| "false".to_string()) == "true" {
-        tracing::info!("Initializing gRPC clients...");
-        let auth_url = std::env::var("AUTH_GRPC_URL").unwrap_or_else(|_| "http://auth-middleware:50051".to_string());
-        let graph_url = std::env::var("RELATION_GRAPH_GRPC_URL").unwrap_or_else(|_| "http://relation-graph:50052".to_string());
-        let processor_url = std::env::var("UNIFIED_PROCESSOR_GRPC_URL").unwrap_or_else(|_| "http://unified-processor:50053".to_string());
-        let embeddings_url = std::env::var("EMBEDDINGS_GRPC_URL").unwrap_or_else(|_| "http://embeddings-service:50054".to_string());
-
-        match api_backend::clients::GrpcClients::connect(auth_url, graph_url, processor_url, embeddings_url).await {
-            Ok(clients) => {
-                tracing::info!("✅ gRPC clients initialized");
-                Some(clients)
-            },
-            Err(e) => {
-                tracing::error!("❌ Failed to initialize gRPC clients: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
+    // Initialize gRPC clients (REQUIRED — fail fast if connections cannot be established)
+    tracing::info!("Initializing gRPC clients...");
+    let grpc_clients = api_backend::clients::GrpcClients::connect(
+        format!("http://{}", config.auth_middleware_url),
+        format!("http://{}", config.relation_graph_url),
+        format!("http://{}", config.unified_processor_url),
+        format!("http://{}", config.enhanced_graph_url),
+        format!("http://{}", config.mcp_server_url),
+        format!("http://{}", config.data_connector_url),
+        "http://client-connector:50059".to_string(),
+    ).await.map_err(|e| {
+        tracing::error!("❌ Failed to initialize gRPC clients: {}", e);
+        e
+    })?;
+    tracing::info!("✅ gRPC clients initialized");
     
     // Create application state
     let state = AppState {

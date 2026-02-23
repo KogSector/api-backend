@@ -37,8 +37,8 @@ pub struct AppState {
     pub circuit_breaker: Arc<crate::middleware::CircuitBreakerRegistry>,
     /// Response cache for auth/data responses
     pub response_cache: Arc<crate::middleware::ResponseCache>,
-    /// gRPC clients (optional based on GRPC_ENABLED)
-    pub grpc_clients: Option<crate::clients::GrpcClients>,
+    /// gRPC clients (required — gRPC-only inter-service communication)
+    pub grpc_clients: crate::clients::GrpcClients,
 }
 
 /// Create the V1 router
